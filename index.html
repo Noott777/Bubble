@@ -478,7 +478,52 @@ function drawEdges(visible) {
   });
 }
 
-// ── MAIN LOOP (stub — membrane + interactions added in stage 3) ───────────────
+// ── BUBBLE MEMBRANE ───────────────────────────────────────────────────────────
+function drawBubble(t) {
+  const br   = BUBBLE_R();
+  const sx   = wx(0), sy = wy(0);
+  const dark = document.documentElement.dataset.theme === 'dark';
+
+  // Soft inner fill
+  const fill = ctx.createRadialGradient(sx,sy,0,sx,sy,br);
+  fill.addColorStop(0,   dark ? 'rgba(167,139,250,.04)' : 'rgba(167,139,250,.07)');
+  fill.addColorStop(.65, dark ? 'rgba(96,165,250,.04)'  : 'rgba(96,165,250,.06)');
+  fill.addColorStop(1,   dark ? 'rgba(52,211,153,.07)'  : 'rgba(52,211,153,.10)');
+  ctx.beginPath(); ctx.arc(sx,sy,br,0,Math.PI*2);
+  ctx.fillStyle = fill; ctx.fill();
+
+  // Iridescent ring — 3 layered passes
+  const hShift = (t * 38) % 360;
+  for (let pass = 0; pass < 3; pass++) {
+    const offset = pass * 2.2;
+    const alpha  = .55 - pass * .14;
+    const seg    = 60;
+    for (let i = 0; i < seg; i++) {
+      const a1  = (i/seg)*Math.PI*2;
+      const a2  = ((i+1)/seg)*Math.PI*2;
+      const hue = (hShift + (i/seg)*360 + pass*30) % 360;
+      const sat = 68 + Math.sin(i*.4 + t*1.8) * 18;
+      const lit = dark ? 64 : 54;
+      const a   = alpha * (.7 + Math.sin(i*.35 + t*1.1)*.3);
+      ctx.beginPath();
+      ctx.arc(sx, sy, br - offset, a1, a2);
+      ctx.strokeStyle = `hsla(${hue},${sat}%,${lit}%,${a})`;
+      ctx.lineWidth   = 3 - pass * .6;
+      ctx.stroke();
+    }
+  }
+
+  // Outer glow halo
+  const hue0  = (hShift) % 360;
+  const glow  = ctx.createRadialGradient(sx,sy,br-8,sx,sy,br+22);
+  glow.addColorStop(0,   'rgba(0,0,0,0)');
+  glow.addColorStop(.4,  `hsla(${hue0},70%,70%,.09)`);
+  glow.addColorStop(1,   'rgba(0,0,0,0)');
+  ctx.beginPath(); ctx.arc(sx,sy,br+22,0,Math.PI*2);
+  ctx.fillStyle = glow; ctx.fill();
+}
+
+// ── MAIN LOOP ─────────────────────────────────────────────────────────────────
 let panX = 0, panY = 0;
 let activeFilter = 'all';
 let entryStart = Date.now();
@@ -519,9 +564,10 @@ function loop() {
   });
 
   const vis = getVisible();
+  drawBubble(t);
   drawEdges(vis);
   [3,2,1].forEach(d => NODES.filter(n=>n.degree===d&&vis.has(n.id)).forEach(n=>drawNode(n,t)));
-  drawNode(NODES[0], t); // self always on top
+  drawNode(NODES[0], t);
 }
 
 // ── FILTER CHIPS ──────────────────────────────────────────────────────────────
@@ -538,6 +584,82 @@ document.getElementById('themeBtn').addEventListener('click', () => {
   const html = document.documentElement;
   html.dataset.theme = html.dataset.theme === 'dark' ? 'light' : 'dark';
 });
+
+// ── HIT TEST ─────────────────────────────────────────────────────────────────
+function nodeAt(sx, sy) {
+  const vis = getVisible();
+  // check front-to-back: self, deg1, deg2, deg3
+  const order = [NODES[0], ...NODES.filter(n=>n.degree===1), ...NODES.filter(n=>n.degree===2), ...NODES.filter(n=>n.degree===3)];
+  for (const n of order) {
+    if (!vis.has(n.id)) continue;
+    const dx = sx - wx(n._x), dy = sy - wy(n._y);
+    if (dx*dx + dy*dy < Math.pow(nodeR(n)*1.5, 2)) return n;
+  }
+  return null;
+}
+
+// ── PAN + TAP (touch) ────────────────────────────────────────────────────────
+let _tx0, _ty0, _px0, _py0, _moved;
+canvas.addEventListener('touchstart', e => {
+  const t = e.touches[0];
+  _tx0 = t.clientX; _ty0 = t.clientY;
+  _px0 = panX; _py0 = panY; _moved = false;
+}, {passive:true});
+
+canvas.addEventListener('touchmove', e => {
+  const t = e.touches[0];
+  const dx = t.clientX - _tx0, dy = t.clientY - _ty0;
+  if (Math.abs(dx)>6 || Math.abs(dy)>6) _moved = true;
+  panX = _px0 + dx; panY = _py0 + dy;
+}, {passive:true});
+
+canvas.addEventListener('touchend', e => {
+  if (_moved) return;
+  const t = e.changedTouches[0];
+  const n = nodeAt(t.clientX, t.clientY);
+  if (n) openPanel(n);
+});
+
+// ── PAN + CLICK (mouse) ───────────────────────────────────────────────────────
+let _mx0, _my0, _mpx, _mpy, _mdragged;
+canvas.addEventListener('mousedown', e => {
+  _mx0 = e.clientX; _my0 = e.clientY;
+  _mpx = panX; _mpy = panY; _mdragged = false;
+});
+canvas.addEventListener('mousemove', e => {
+  if (!(e.buttons & 1)) return;
+  const dx = e.clientX-_mx0, dy = e.clientY-_my0;
+  if (Math.abs(dx)>4||Math.abs(dy)>4) _mdragged = true;
+  panX = _mpx + dx; panY = _mpy + dy;
+});
+canvas.addEventListener('click', e => {
+  if (_mdragged) return;
+  const n = nodeAt(e.clientX, e.clientY);
+  if (n) openPanel(n); else closePanel();
+});
+
+// ── PANEL OPEN/CLOSE ──────────────────────────────────────────────────────────
+const panel   = document.getElementById('panel');
+const pscroll = document.getElementById('panel-scroll');
+const overlay = document.getElementById('overlay');
+
+function openPanel(n) {
+  pscroll.innerHTML = buildPanel(n);
+  panel.classList.add('on');
+  overlay.classList.add('on');
+}
+function closePanel() {
+  panel.classList.remove('on');
+  overlay.classList.remove('on');
+}
+overlay.addEventListener('click', closePanel);
+
+// buildPanel will be added in stage 4
+function buildPanel(n) {
+  return `<div style="padding:20px;color:var(--text);opacity:.6;font-size:14px">
+    Profile panel — stage 4
+  </div>`;
+}
 
 // ── BOOT ─────────────────────────────────────────────────────────────────────
 resize();
