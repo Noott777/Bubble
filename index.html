@@ -249,7 +249,299 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(
 </div>
 
 <script>
-// ── STAGE 2 ONWARDS ── will be added next
+// ── DATA ─────────────────────────────────────────────────────────────────────
+const NODES = [
+  { id:'you',      label:'You',           type:'self',    degree:0, msgFreq:1.00, color:'#ffffff', hasStory:false },
+  { id:'emma',     label:'Emma',          type:'contact', degree:1, msgFreq:0.92, color:'#a78bfa', hasStory:true,  mutuals:3, via:null,           bio:'photographer & coffee addict ☕', posts:['#a78bfa','#7c6fff','#c4b5fd','#ddd6fe','#ede9fe','#f5f3ff'] },
+  { id:'alex',     label:'Alex',          type:'contact', degree:1, msgFreq:0.71, color:'#f472b6', hasStory:true,  mutuals:2, via:null,           bio:'music & late nights',             posts:['#f472b6','#ec4899','#f9a8d4','#fce7f3'] },
+  { id:'jordan',   label:'Jordan',        type:'contact', degree:1, msgFreq:0.55, color:'#fb923c', hasStory:false, mutuals:1, via:null,           bio:'just vibing',                     posts:['#fb923c','#f97316','#fdba74'] },
+  { id:'priya',    label:'Priya',         type:'contact', degree:1, msgFreq:0.28, color:'#34d399', hasStory:false, mutuals:2, via:null,           bio:'plant mum 🌿',                    posts:['#34d399','#10b981','#6ee7b7','#a7f3d0'] },
+  { id:'squad',    label:'Weekend\nSquad',type:'group',   degree:1, msgFreq:0.85, color:'#34d399', hasStory:false, members:['Emma','Alex','Jordan','You'],   posts:['#34d399','#10b981','#6ee7b7'] },
+  { id:'bookclub', label:'Book\nClub',    type:'group',   degree:1, msgFreq:0.42, color:'#34d399', hasStory:false, members:['Priya','Jordan','You','Taylor'],posts:['#6ee7b7','#34d399'] },
+  { id:'chris',    label:'Chris',         type:'contact', degree:2, msgFreq:0,    color:'#60a5fa', hasStory:true,  mutuals:1, via:'Emma',         bio:'📍 London',                       posts:['#60a5fa','#3b82f6'] },
+  { id:'taylor',   label:'Taylor',        type:'contact', degree:2, msgFreq:0,    color:'#818cf8', hasStory:false, mutuals:2, via:'Alex',         bio:'design & coffee',                 posts:['#818cf8','#6366f1'] },
+  { id:'sam',      label:'Sam',           type:'contact', degree:2, msgFreq:0,    color:'#38bdf8', hasStory:false, mutuals:1, via:'Weekend Squad',bio:'',                                posts:['#38bdf8','#0ea5e9'] },
+  { id:'morgan',   label:'Morgan',        type:'contact', degree:3, msgFreq:0,    color:'#94a3b8', hasStory:false, mutuals:0, via:'Chris',        bio:'',                                posts:[] },
+  { id:'riley',    label:'Riley',         type:'contact', degree:3, msgFreq:0,    color:'#94a3b8', hasStory:false, mutuals:0, via:'Taylor',       bio:'',                                posts:[] },
+];
+
+const EDGES = [
+  ['you','emma'],['you','alex'],['you','jordan'],['you','priya'],
+  ['you','squad'],['you','bookclub'],
+  ['emma','alex'],['emma','jordan'],
+  ['squad','emma'],['squad','alex'],['squad','jordan'],
+  ['bookclub','priya'],['bookclub','jordan'],['bookclub','taylor'],
+  ['emma','chris'],['alex','taylor'],['squad','sam'],
+  ['chris','morgan'],['taylor','riley'],
+];
+
+// ── CANVAS SETUP ─────────────────────────────────────────────────────────────
+const canvas = document.getElementById('canvas');
+const ctx    = canvas.getContext('2d');
+let W, H, CX, CY, SCALE, DPR;
+
+function resize() {
+  DPR   = window.devicePixelRatio || 1;
+  W     = window.innerWidth;
+  H     = window.innerHeight;
+  canvas.width  = W * DPR;
+  canvas.height = H * DPR;
+  canvas.style.width  = W + 'px';
+  canvas.style.height = H + 'px';
+  ctx.scale(DPR, DPR);
+  CX    = W / 2;
+  CY    = 56 + (H - 56 - 72) / 2;
+  SCALE = Math.min(W, H) / 420;
+  placeNodes();
+}
+window.addEventListener('resize', resize);
+
+// ── NODE PLACEMENT ────────────────────────────────────────────────────────────
+const BUBBLE_R = () => 132 * SCALE;
+
+function placeNodes() {
+  const br = BUBBLE_R();
+  const byDeg = {1:[], 2:[], 3:[]};
+  NODES.forEach(n => { if (n.degree >= 1 && n.degree <= 3) byDeg[n.degree].push(n); });
+
+  [1,2,3].forEach(deg => {
+    const list = byDeg[deg];
+    list.forEach((n, i) => {
+      if (n._angle === undefined) n._angle = (i / list.length) * Math.PI * 2 + deg * 0.4;
+      const r = deg === 1 ? br * (0.34 + (1 - n.msgFreq) * 0.48)
+              : deg === 2 ? br * (1.18 + i * 0.08)
+              :              br * (1.65 + i * 0.07);
+      n._tx = Math.cos(n._angle) * r;
+      n._ty = Math.sin(n._angle) * r;
+      if (n._x === undefined) { n._x = n._tx * 0.7; n._y = n._ty * 0.7; n._s = 0; n._a = 0; }
+    });
+  });
+
+  const self = NODES[0];
+  self._x = self._tx = 0; self._y = self._ty = 0; self._s = 1; self._a = 1;
+}
+
+// ── HELPERS ───────────────────────────────────────────────────────────────────
+function nodeR(n) {
+  if (n.type === 'self')    return 26 * SCALE;
+  if (n.type === 'group')   return 17 * SCALE;
+  if (n.degree === 1)       return (12 + n.msgFreq * 5) * SCALE;
+  if (n.degree === 2)       return 11 * SCALE;
+  return 9 * SCALE;
+}
+
+function lighten(hex, amt) {
+  const r = Math.min(255, parseInt(hex.slice(1,3),16) + amt);
+  const g = Math.min(255, parseInt(hex.slice(3,5),16) + amt);
+  const b = Math.min(255, parseInt(hex.slice(5,7),16) + amt);
+  return `rgb(${r},${g},${b})`;
+}
+
+function wx(x) { return CX + x + panX; }
+function wy(y) { return CY + y + panY; }
+
+// ── DRAW NODES ────────────────────────────────────────────────────────────────
+const T0 = Date.now();
+
+function drawNode(n, t) {
+  if (!n._a || n._a <= 0) return;
+  const sx = wx(n._x), sy = wy(n._y);
+  const r  = nodeR(n) * n._s;
+  const dark = document.documentElement.dataset.theme === 'dark';
+  ctx.save();
+  ctx.globalAlpha = n._a;
+
+  // — Story ring —
+  if (n.hasStory) {
+    const hr = (t * 25) % 360;
+    for (let i = 0; i < 36; i++) {
+      const a1 = (i/36)*Math.PI*2 - Math.PI/2;
+      const a2 = ((i+1)/36)*Math.PI*2 - Math.PI/2;
+      ctx.beginPath();
+      ctx.arc(sx, sy, r + 5*SCALE, a1, a2);
+      ctx.strokeStyle = `hsl(${(hr + i*10)%360},80%,65%)`;
+      ctx.lineWidth = 2.5;
+      ctx.stroke();
+    }
+  }
+
+  // — Activity glow (1st degree, high freq) —
+  if (n.degree === 1 && n.msgFreq > 0.6) {
+    const pulse = 0.5 + 0.5 * Math.sin(t * 1.5 + n.id.charCodeAt(0));
+    const gr = ctx.createRadialGradient(sx,sy,r,sx,sy,r + (8+pulse*4)*SCALE);
+    gr.addColorStop(0, n.color + '55');
+    gr.addColorStop(1, n.color + '00');
+    ctx.beginPath(); ctx.arc(sx,sy,r+(8+pulse*4)*SCALE,0,Math.PI*2);
+    ctx.fillStyle = gr; ctx.fill();
+  }
+
+  // — Node body —
+  if (n.type === 'self') {
+    const gr = ctx.createRadialGradient(sx-r*.3,sy-r*.3,0,sx,sy,r);
+    gr.addColorStop(0,'#ffffff'); gr.addColorStop(.5,'#e0d7ff'); gr.addColorStop(1,'#a78bfa');
+    ctx.beginPath(); ctx.arc(sx,sy,r,0,Math.PI*2);
+    ctx.fillStyle = gr; ctx.fill();
+    const sg = ctx.createLinearGradient(sx-r,sy-r,sx+r,sy+r);
+    sg.addColorStop(0,'#a78bfa'); sg.addColorStop(.5,'#60a5fa'); sg.addColorStop(1,'#34d399');
+    ctx.strokeStyle = sg; ctx.lineWidth = 2; ctx.stroke();
+
+  } else if (n.type === 'group') {
+    const gr = ctx.createRadialGradient(sx-r*.3,sy-r*.3,0,sx,sy,r);
+    gr.addColorStop(0,'#6ee7b7'); gr.addColorStop(1,'#059669');
+    ctx.beginPath(); ctx.arc(sx,sy,r,0,Math.PI*2);
+    ctx.fillStyle = gr; ctx.fill();
+    ctx.strokeStyle = '#34d399'; ctx.lineWidth = 1.5; ctx.stroke();
+
+  } else if (n.degree === 1) {
+    const gr = ctx.createRadialGradient(sx-r*.3,sy-r*.3,0,sx,sy,r);
+    gr.addColorStop(0, lighten(n.color,50)); gr.addColorStop(1, n.color);
+    ctx.beginPath(); ctx.arc(sx,sy,r,0,Math.PI*2);
+    ctx.fillStyle = gr; ctx.fill();
+
+  } else if (n.degree === 2) {
+    ctx.beginPath(); ctx.arc(sx,sy,r,0,Math.PI*2);
+    ctx.fillStyle = dark ? '#1e293b' : '#cbd5e1'; ctx.fill();
+    ctx.strokeStyle = n.color + '99'; ctx.lineWidth = 2; ctx.stroke();
+    // mutual badge
+    if (n.mutuals > 0 && n._s > 0.8) {
+      const bx = sx + r*.7, by = sy - r*.7;
+      ctx.beginPath(); ctx.arc(bx,by,7*SCALE,0,Math.PI*2);
+      ctx.fillStyle = '#60a5fa'; ctx.fill();
+      ctx.fillStyle = '#fff';
+      ctx.font = `bold ${7*SCALE}px sans-serif`;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.globalAlpha = n._a; ctx.fillText(n.mutuals, bx, by+.5);
+    }
+
+  } else { // degree 3 — ghost
+    ctx.beginPath(); ctx.arc(sx,sy,r,0,Math.PI*2);
+    ctx.fillStyle = dark ? 'rgba(30,41,59,.55)' : 'rgba(203,213,225,.55)'; ctx.fill();
+    ctx.setLineDash([3,3]);
+    ctx.strokeStyle = dark ? 'rgba(148,163,184,.4)' : 'rgba(100,116,139,.4)';
+    ctx.lineWidth = 1; ctx.stroke(); ctx.setLineDash([]);
+  }
+
+  // — Initials / icons —
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  if (n.type === 'self') {
+    ctx.fillStyle = dark ? 'rgba(0,0,0,.7)' : 'rgba(0,0,0,.6)';
+    ctx.font = `bold ${11*SCALE}px -apple-system,sans-serif`;
+    ctx.fillText('You', sx, sy+.5);
+  } else if (n.degree === 1) {
+    ctx.fillStyle = 'rgba(255,255,255,.9)';
+    ctx.font = `bold ${r*.65}px -apple-system,sans-serif`;
+    ctx.fillText(n.label[0], sx, sy+.5);
+  } else if (n.degree === 3) {
+    ctx.font = `${r}px sans-serif`;
+    ctx.fillText('🔒', sx, sy+1);
+  }
+
+  // — Label —
+  if (n.type !== 'self' && n._s > 0.5) {
+    const lines = n.label.split('\n');
+    const ly = sy + r + 5*SCALE;
+    ctx.globalAlpha = n._a * Math.min(1,(n._s-.5)*2);
+    ctx.font = `${(n.degree===3?9:10)*SCALE}px -apple-system,sans-serif`;
+    ctx.textBaseline = 'top';
+    ctx.fillStyle = n.degree === 3
+      ? (dark ? 'rgba(148,163,184,.5)' : 'rgba(100,116,139,.5)')
+      : (dark ? 'rgba(255,255,255,.75)' : 'rgba(0,0,0,.7)');
+    lines.forEach((l,i) => ctx.fillText(l, sx, ly + i*11*SCALE));
+  }
+
+  ctx.restore();
+}
+
+// ── DRAW EDGES ────────────────────────────────────────────────────────────────
+function drawEdges(visible) {
+  const dark = document.documentElement.dataset.theme === 'dark';
+  EDGES.forEach(([a,b]) => {
+    const n1 = NODES.find(n=>n.id===a), n2 = NODES.find(n=>n.id===b);
+    if (!n1||!n2||!visible.has(a)||!visible.has(b)) return;
+    if ((!n1._a||n1._a<.05) && n1.type!=='self') return;
+    if ((!n2._a||n2._a<.05) && n2.type!=='self') return;
+    const alpha = Math.min(n1._a||1, n2._a||1);
+    const isGroup = n1.type==='group'||n2.type==='group';
+    const is1st   = (n1.degree<=1||n1.type==='self')&&(n2.degree<=1||n2.type==='self');
+    let color, lw;
+    if (isGroup) { color=`rgba(52,211,153,${.35*alpha})`; lw=1.5; }
+    else if (is1st) { color=`rgba(167,139,250,${.25*alpha})`; lw=1.5; }
+    else { color=`rgba(148,163,184,${.14*alpha})`; lw=1; }
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(wx(n1._x), wy(n1._y));
+    ctx.lineTo(wx(n2._x), wy(n2._y));
+    ctx.strokeStyle = color; ctx.lineWidth = lw;
+    if (!is1st && !isGroup) ctx.setLineDash([4,5]);
+    ctx.stroke(); ctx.setLineDash([]);
+    ctx.restore();
+  });
+}
+
+// ── MAIN LOOP (stub — membrane + interactions added in stage 3) ───────────────
+let panX = 0, panY = 0;
+let activeFilter = 'all';
+let entryStart = Date.now();
+const ENTRY_STAGGER = 120;
+
+function getVisible() {
+  return new Set(NODES.filter(n => {
+    if (n.type==='self') return true;
+    if (activeFilter==='frequent') return n.msgFreq > 0.5;
+    if (activeFilter==='recent')   return n.degree === 1;
+    if (activeFilter==='groups')   return n.type === 'group';
+    return true;
+  }).map(n=>n.id));
+}
+
+function loop() {
+  requestAnimationFrame(loop);
+  const t  = (Date.now() - T0) / 1000;
+  const el = Date.now() - entryStart;
+  const dark = document.documentElement.dataset.theme === 'dark';
+
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle = dark ? '#080810' : '#f0f0f8';
+  ctx.fillRect(0,0,W,H);
+
+  // Entry spring
+  let idx = 0;
+  NODES.forEach(n => {
+    if (n.type==='self') return;
+    const delay = 400 + idx * ENTRY_STAGGER + n.degree * 150;
+    idx++;
+    if (el > delay) {
+      n._x += (n._tx - n._x) * .09;
+      n._y += (n._ty - n._y) * .09;
+      n._s  = Math.min(1, (n._s||0) + .055);
+      n._a  = Math.min(1, (n._a||0) + .045);
+    }
+  });
+
+  const vis = getVisible();
+  drawEdges(vis);
+  [3,2,1].forEach(d => NODES.filter(n=>n.degree===d&&vis.has(n.id)).forEach(n=>drawNode(n,t)));
+  drawNode(NODES[0], t); // self always on top
+}
+
+// ── FILTER CHIPS ──────────────────────────────────────────────────────────────
+document.querySelectorAll('.chip').forEach(c => {
+  c.addEventListener('click', () => {
+    document.querySelectorAll('.chip').forEach(x=>x.classList.remove('on'));
+    c.classList.add('on');
+    activeFilter = c.dataset.f;
+  });
+});
+
+// ── THEME TOGGLE ──────────────────────────────────────────────────────────────
+document.getElementById('themeBtn').addEventListener('click', () => {
+  const html = document.documentElement;
+  html.dataset.theme = html.dataset.theme === 'dark' ? 'light' : 'dark';
+});
+
+// ── BOOT ─────────────────────────────────────────────────────────────────────
+resize();
+loop();
 </script>
 </body>
 </html>
