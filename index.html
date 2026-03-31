@@ -49,6 +49,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(
   cursor:pointer;color:var(--text);transition:background .2s;flex-shrink:0;
 }
 .icon-btn:active{background:var(--border);}
+.icon-btn.active{background:var(--accent);color:#fff;border-color:var(--accent);}
 
 /* ── Canvas ── */
 #canvas{
@@ -178,6 +179,55 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(
   background:var(--surface);border:1px solid var(--border);
   padding:4px 13px;border-radius:20px;font-size:13px;
 }
+
+/* ── Debug Panel ── */
+#debug-panel {
+  position:fixed;bottom:0;left:0;right:0;
+  background:var(--bg);
+  border-top-left-radius:20px;border-top-right-radius:20px;
+  border-top:1px solid var(--border);
+  transform:translateY(100%);
+  transition:transform .35s cubic-bezier(.32,.72,0,1);
+  z-index:80;max-height:80vh;display:flex;flex-direction:column;
+}
+#debug-panel.on{transform:translateY(0);}
+#debug-scroll{flex:1;overflow-y:auto;padding:8px 18px 36px;}
+#debug-scroll::-webkit-scrollbar{width:3px;}
+#debug-scroll::-webkit-scrollbar-thumb{background:var(--border);}
+.dbg-title{
+  font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;
+  color:var(--accent);margin:14px 0 10px;
+}
+.dbg-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:12px;}
+.dbg-label{font-size:13px;color:var(--text);white-space:nowrap;min-width:110px;}
+.dbg-val{font-size:12px;color:var(--accent);font-weight:700;min-width:24px;text-align:right;}
+input[type=range]{
+  flex:1;-webkit-appearance:none;height:4px;
+  background:var(--border);border-radius:2px;outline:none;cursor:pointer;
+}
+input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none;width:18px;height:18px;border-radius:50%;
+  background:var(--accent);cursor:pointer;border:2px solid var(--bg);
+  box-shadow:0 0 6px var(--accent);
+}
+.seg{display:flex;background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;flex:1;}
+.seg-opt{
+  flex:1;padding:6px 4px;text-align:center;font-size:11px;font-weight:600;
+  color:var(--text-muted);cursor:pointer;transition:all .15s;
+}
+.seg-opt.on{background:var(--accent);color:#fff;}
+.dbg-toggle{
+  width:42px;height:24px;border-radius:12px;background:var(--border);
+  position:relative;cursor:pointer;transition:background .2s;flex-shrink:0;
+}
+.dbg-toggle.on{background:var(--accent);}
+.dbg-toggle::after{
+  content:'';position:absolute;top:3px;left:3px;
+  width:18px;height:18px;border-radius:50%;background:#fff;
+  transition:transform .2s;box-shadow:0 1px 4px rgba(0,0,0,.3);
+}
+.dbg-toggle.on::after{transform:translateX(18px);}
+.dbg-divider{height:1px;background:var(--border);margin:4px 0 2px;}
 </style>
 </head>
 <body>
@@ -186,6 +236,11 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(
 <div id="header">
   <div class="logo">bubble</div>
   <div class="hdr-icons">
+    <div class="icon-btn" id="debugBtn" title="Debug controls">
+      <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+      </svg>
+    </div>
     <div class="icon-btn" id="themeBtn">
       <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
         <circle cx="12" cy="12" r="5"/>
@@ -236,6 +291,76 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(
   <div class="nav-item">
     <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
     Profile
+  </div>
+</div>
+
+<!-- Debug Panel -->
+<div id="debug-panel">
+  <div class="panel-handle"></div>
+  <div id="debug-scroll">
+
+    <div class="dbg-title">Graph Structure</div>
+
+    <div class="dbg-row">
+      <span class="dbg-label">1st degree shown</span>
+      <input type="range" id="d-contacts" min="1" max="6" value="6" step="1">
+      <span class="dbg-val" id="d-contacts-val">6</span>
+    </div>
+    <div class="dbg-row">
+      <span class="dbg-label">Group chats</span>
+      <input type="range" id="d-groups" min="0" max="3" value="2" step="1">
+      <span class="dbg-val" id="d-groups-val">2</span>
+    </div>
+    <div class="dbg-row">
+      <span class="dbg-label">Show 2nd degree</span>
+      <div class="dbg-toggle on" id="d-show2nd"></div>
+    </div>
+    <div class="dbg-row" id="d-2nd-row">
+      <span class="dbg-label">2nd degree count</span>
+      <input type="range" id="d-2nd" min="0" max="4" value="3" step="1">
+      <span class="dbg-val" id="d-2nd-val">3</span>
+    </div>
+    <div class="dbg-row">
+      <span class="dbg-label">Show 3rd degree</span>
+      <div class="dbg-toggle on" id="d-show3rd"></div>
+    </div>
+
+    <div class="dbg-divider"></div>
+    <div class="dbg-title">Sort Method</div>
+
+    <div class="dbg-row">
+      <div class="seg" id="d-sort">
+        <div class="seg-opt on" data-v="freq">Frequency</div>
+        <div class="seg-opt" data-v="alpha">A–Z</div>
+        <div class="seg-opt" data-v="recent">Recency</div>
+        <div class="seg-opt" data-v="random">Random</div>
+      </div>
+    </div>
+
+    <div class="dbg-divider"></div>
+    <div class="dbg-title">Physics</div>
+
+    <div class="dbg-row">
+      <span class="dbg-label">Bubble radius</span>
+      <input type="range" id="d-bubble" min="60" max="200" value="132" step="4">
+      <span class="dbg-val" id="d-bubble-val">132</span>
+    </div>
+    <div class="dbg-row">
+      <span class="dbg-label">Float strength</span>
+      <input type="range" id="d-float" min="0" max="30" value="10" step="1">
+      <span class="dbg-val" id="d-float-val">1.0×</span>
+    </div>
+    <div class="dbg-row">
+      <span class="dbg-label">Repulsion radius</span>
+      <input type="range" id="d-repulse" min="0" max="200" value="72" step="4">
+      <span class="dbg-val" id="d-repulse-val">72</span>
+    </div>
+    <div class="dbg-row">
+      <span class="dbg-label">Spring speed</span>
+      <input type="range" id="d-spring" min="1" max="20" value="9" step="1">
+      <span class="dbg-val" id="d-spring-val">0.09</span>
+    </div>
+
   </div>
 </div>
 
@@ -307,7 +432,6 @@ function resize() {
 window.addEventListener('resize', resize);
 
 // ── NODE PLACEMENT ────────────────────────────────────────────────────────────
-const BUBBLE_R = () => 132 * SCALE;
 
 function placeNodes() {
   const br = BUBBLE_R();
@@ -332,6 +456,8 @@ function placeNodes() {
 }
 
 // ── HELPERS ───────────────────────────────────────────────────────────────────
+let hoverNode = null; // tracked by mousemove
+
 function nodeR(n) {
   if (n.type === 'self')    return 28 * SCALE;
   if (n.type === 'group')   return 19 * SCALE;
@@ -462,6 +588,24 @@ function drawNode(n, t) {
     ctx.fillText('🔒', sx, sy+1);
   }
 
+  // — Hover shine —
+  if (hoverNode === n && n.type !== 'self') {
+    const shimmerA = (t * 1.4) % (Math.PI * 2);
+    const shimmerLen = Math.PI * 0.55;
+    const sg = ctx.createLinearGradient(
+      sx + Math.cos(shimmerA)*r, sy + Math.sin(shimmerA)*r,
+      sx + Math.cos(shimmerA+shimmerLen)*r, sy + Math.sin(shimmerA+shimmerLen)*r
+    );
+    sg.addColorStop(0,   'rgba(255,255,255,0)');
+    sg.addColorStop(0.5, 'rgba(255,255,255,0.45)');
+    sg.addColorStop(1,   'rgba(255,255,255,0)');
+    ctx.beginPath();
+    ctx.arc(sx, sy, r + 2, shimmerA, shimmerA + shimmerLen);
+    ctx.strokeStyle = sg;
+    ctx.lineWidth = 3;
+    ctx.stroke();
+  }
+
   // — Label —
   if (n.type !== 'self' && n._s > 0.5) {
     const lines = n.label.split('\n');
@@ -556,16 +700,6 @@ let activeFilter = 'all';
 let entryStart = Date.now();
 const ENTRY_STAGGER = 120;
 
-function getVisible() {
-  return new Set(NODES.filter(n => {
-    if (n.type==='self') return true;
-    if (activeFilter==='frequent') return n.msgFreq > 0.5;
-    if (activeFilter==='recent')   return n.degree === 1;
-    if (activeFilter==='groups')   return n.type === 'group';
-    return true;
-  }).map(n=>n.id));
-}
-
 function loop() {
   requestAnimationFrame(loop);
   const t  = (Date.now() - T0) / 1000;
@@ -584,32 +718,36 @@ function loop() {
     idx++;
     if (el > delay) {
       if (!n._dragging) {
-        n._x += (n._tx - n._x) * .09;
-        n._y += (n._ty - n._y) * .09;
+        n._x += (n._tx - n._x) * DBG.springSpeed;
+        n._y += (n._ty - n._y) * DBG.springSpeed;
       }
       n._s = Math.min(1, (n._s||0) + .055);
       n._a = Math.min(1, (n._a||0) + .045);
     }
     // Float — lazy init
-    if (!n._fp) { n._fp = Math.random()*Math.PI*2; n._fsp = 0.22 + Math.random()*0.3; }
+    if (!n._fp) { n._fp = Math.random()*Math.PI*2; n._fsp = 0.18 + Math.random()*0.22; }
     if (!n._dragging) {
-      const fa = (n.degree===1 ? 3.5 : 2) * SCALE;
+      const fa = (n.degree===1 ? 3.5 : 2) * SCALE * DBG.floatAmp;
       n._fx = Math.sin(t * n._fsp + n._fp) * fa;
       n._fy = Math.cos(t * n._fsp * 0.7 + n._fp * 1.3) * fa * 0.75;
     }
-    // Repulsion from mouse
+    // Repulsion — slow and floaty (force capped, high inertia)
     const sx = vx(n), sy = vy(n);
     const ddx = sx - mouseX, ddy = sy - mouseY;
     const dist = Math.sqrt(ddx*ddx + ddy*ddy);
-    const REPEL = 72 * SCALE;
+    const REPEL = DBG.repulseR * SCALE;
     if (dist < REPEL && dist > 1 && !n._dragging) {
-      const force = (1 - dist/REPEL) * 9 * SCALE;
-      n._rx = ((n._rx||0) + (ddx/dist) * force) * 0.82;
-      n._ry = ((n._ry||0) + (ddy/dist) * force) * 0.82;
-    } else {
-      n._rx = (n._rx||0) * 0.88;
-      n._ry = (n._ry||0) * 0.88;
+      const force = (1 - dist/REPEL) * 3.5 * SCALE; // gentler force
+      n._rx = (n._rx||0) + (ddx/dist) * force * 0.15; // slow acceleration
+      n._ry = (n._ry||0) + (ddy/dist) * force * 0.15;
     }
+    // High inertia decay — floaty drift away
+    n._rx = (n._rx||0) * 0.96;
+    n._ry = (n._ry||0) * 0.96;
+    // cap displacement so it never covers the node
+    const maxR = nodeR(n) * 1.2;
+    const rmag = Math.sqrt((n._rx||0)**2 + (n._ry||0)**2);
+    if (rmag > maxR) { n._rx = (n._rx/rmag)*maxR; n._ry = (n._ry/rmag)*maxR; }
   });
 
   const vis = getVisible();
@@ -623,8 +761,7 @@ function loop() {
 document.querySelectorAll('.chip').forEach(c => {
   c.addEventListener('click', () => {
     document.querySelectorAll('.chip').forEach(x=>x.classList.remove('on'));
-    c.classList.add('on');
-    activeFilter = c.dataset.f;
+    c.classList.add('on'); activeFilter = c.dataset.f;
   });
 });
 
@@ -686,6 +823,8 @@ canvas.addEventListener('touchend', e => {
 // Mouse
 canvas.addEventListener('mousemove', e => {
   mouseX = e.clientX; mouseY = e.clientY;
+  hoverNode = _dragNode ? null : nodeAt(e.clientX, e.clientY);
+  canvas.style.cursor = hoverNode ? 'pointer' : 'default';
   if (_dragNode) {
     _dragNode._x = (e.clientX - _dOffX - CX - panX) - (_dragNode._fx||0) - (_dragNode._rx||0);
     _dragNode._y = (e.clientY - _dOffY - CY - panY) - (_dragNode._fy||0) - (_dragNode._ry||0);
@@ -872,6 +1011,117 @@ function buildPanel(n) {
       <button class="btn btn-pri" style="flex:1">📨 Request to Follow</button>
     </div>`;
 }
+
+// ── DEBUG STATE ───────────────────────────────────────────────────────────────
+const DBG = {
+  maxContacts: 6,
+  maxGroups:   2,
+  show2nd:     true,
+  max2nd:      3,
+  show3rd:     true,
+  sortBy:      'freq',
+  bubbleBase:  132,
+  floatAmp:    1.0,
+  repulseR:    72,
+  springSpeed: 0.09,
+};
+
+// Override BUBBLE_R and physics reads with DBG values
+const BUBBLE_R = () => DBG.bubbleBase * SCALE;
+
+function getVisible() {
+  const contacts1 = NODES
+    .filter(n => n.type==='contact' && n.degree===1)
+    .sort((a,b) => sortValue(a) - sortValue(b))
+    .slice(0, DBG.maxContacts);
+  const groups = NODES
+    .filter(n => n.type==='group')
+    .slice(0, DBG.maxGroups);
+  const deg2 = DBG.show2nd
+    ? NODES.filter(n=>n.degree===2).slice(0, DBG.max2nd)
+    : [];
+  const deg3 = DBG.show3rd
+    ? NODES.filter(n=>n.degree===3)
+    : [];
+  const ids = new Set(['you', ...contacts1.map(n=>n.id), ...groups.map(n=>n.id), ...deg2.map(n=>n.id), ...deg3.map(n=>n.id)]);
+
+  // also apply quick filter chip on top
+  if (activeFilter==='frequent') ids.forEach(id=>{ const n=NODES.find(x=>x.id===id); if(n&&n.msgFreq<0.5&&n.type!=='self') ids.delete(id); });
+  if (activeFilter==='recent')   ids.forEach(id=>{ const n=NODES.find(x=>x.id===id); if(n&&n.degree!==1&&n.type!=='self') ids.delete(id); });
+  if (activeFilter==='groups')   ids.forEach(id=>{ const n=NODES.find(x=>x.id===id); if(n&&n.type!=='group'&&n.type!=='self') ids.delete(id); });
+  return ids;
+}
+
+function sortValue(n) {
+  if (DBG.sortBy==='freq')   return -(n.msgFreq||0);
+  if (DBG.sortBy==='alpha')  return n.label.localeCompare('');
+  if (DBG.sortBy==='recent') return n.id.charCodeAt(0); // mock recency by id hash
+  return Math.random(); // random — stable per frame via seed would be better but this demos fine
+}
+
+// ── DEBUG PANEL WIRING ────────────────────────────────────────────────────────
+const debugPanel = document.getElementById('debug-panel');
+const debugBtn   = document.getElementById('debugBtn');
+
+debugBtn.addEventListener('click', () => {
+  const open = debugPanel.classList.toggle('on');
+  debugBtn.classList.toggle('active', open);
+  if (open) overlay.classList.add('on');
+  else overlay.classList.remove('on');
+});
+
+// close debug on overlay click (shared with profile panel)
+const _origOverlayClick = overlay.onclick;
+overlay.addEventListener('click', () => {
+  if (debugPanel.classList.contains('on')) {
+    debugPanel.classList.remove('on');
+    debugBtn.classList.remove('active');
+  }
+});
+
+function dbgSlider(id, valId, key, fmt) {
+  const el = document.getElementById(id);
+  const vEl = document.getElementById(valId);
+  el.addEventListener('input', () => {
+    DBG[key] = parseFloat(el.value);
+    vEl.textContent = fmt ? fmt(el.value) : el.value;
+    placeNodes(); // recompute positions when structure changes
+  });
+}
+
+dbgSlider('d-contacts', 'd-contacts-val', 'maxContacts');
+dbgSlider('d-groups',   'd-groups-val',   'maxGroups');
+dbgSlider('d-2nd',      'd-2nd-val',      'max2nd');
+dbgSlider('d-bubble',   'd-bubble-val',   'bubbleBase', v => v);
+dbgSlider('d-float',    'd-float-val',    'floatAmp',   v => (v/10).toFixed(1)+'×');
+dbgSlider('d-repulse',  'd-repulse-val',  'repulseR');
+document.getElementById('d-spring').addEventListener('input', function() {
+  DBG.springSpeed = this.value / 100;
+  document.getElementById('d-spring-val').textContent = DBG.springSpeed.toFixed(2);
+});
+
+// toggles
+function dbgToggle(id, key, rowId) {
+  const el = document.getElementById(id);
+  el.addEventListener('click', () => {
+    DBG[key] = !DBG[key];
+    el.classList.toggle('on', DBG[key]);
+    if (rowId) document.getElementById(rowId).style.opacity = DBG[key] ? '1' : '0.35';
+    placeNodes();
+  });
+}
+dbgToggle('d-show2nd', 'show2nd', 'd-2nd-row');
+dbgToggle('d-show3rd', 'show3rd');
+
+// sort segmented control
+document.querySelectorAll('#d-sort .seg-opt').forEach(opt => {
+  opt.addEventListener('click', () => {
+    document.querySelectorAll('#d-sort .seg-opt').forEach(o=>o.classList.remove('on'));
+    opt.classList.add('on');
+    DBG.sortBy = opt.dataset.v;
+    placeNodes();
+  });
+});
 
 // ── BOOT ─────────────────────────────────────────────────────────────────────
 resize();
