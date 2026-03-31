@@ -352,8 +352,8 @@ input[type=range]::-webkit-slider-thumb{
     </div>
     <div class="dbg-row">
       <span class="dbg-label">Repulsion radius</span>
-      <input type="range" id="d-repulse" min="0" max="200" value="72" step="4">
-      <span class="dbg-val" id="d-repulse-val">72</span>
+      <input type="range" id="d-repulse" min="0" max="150" value="50" step="5">
+      <span class="dbg-val" id="d-repulse-val">50</span>
     </div>
     <div class="dbg-row">
       <span class="dbg-label">Spring speed</span>
@@ -459,7 +459,7 @@ function placeNodes() {
 let hoverNode = null; // tracked by mousemove
 
 function nodeR(n) {
-  if (n.type === 'self')    return 28 * SCALE;
+  if (n.type === 'self')    return 34 * SCALE;
   if (n.type === 'group')   return 19 * SCALE;
   if (n.degree === 1)       return (18 + n.msgFreq * 8) * SCALE;
   if (n.degree === 2)       return 13 * SCALE;
@@ -533,24 +533,27 @@ function drawNode(n, t) {
     ctx.strokeStyle = '#34d399'; ctx.lineWidth = 1.5; ctx.stroke();
 
   } else if (n.degree === 1) {
+    // Fallback gradient (shown while image loads)
     const gr = ctx.createRadialGradient(sx-r*.3,sy-r*.3,0,sx,sy,r);
     gr.addColorStop(0, lighten(n.color,50)); gr.addColorStop(1, n.color);
     ctx.beginPath(); ctx.arc(sx,sy,r,0,Math.PI*2);
     ctx.fillStyle = gr; ctx.fill();
+    // Photo overtakes fill once loaded
     if (IMGS[n.id]) {
-      ctx.save(); ctx.beginPath(); ctx.arc(sx,sy,r-1,0,Math.PI*2); ctx.clip();
+      ctx.save(); ctx.beginPath(); ctx.arc(sx,sy,r,0,Math.PI*2); ctx.clip();
       ctx.drawImage(IMGS[n.id], sx-r, sy-r, r*2, r*2); ctx.restore();
     }
-    // colour ring border
+    // Coloured ring border
     ctx.beginPath(); ctx.arc(sx,sy,r,0,Math.PI*2);
-    ctx.strokeStyle = n.color + 'cc'; ctx.lineWidth = 2; ctx.stroke();
+    ctx.strokeStyle = n.color + 'dd'; ctx.lineWidth = 2.5; ctx.stroke();
 
   } else if (n.degree === 2) {
     ctx.beginPath(); ctx.arc(sx,sy,r,0,Math.PI*2);
     ctx.fillStyle = dark ? '#1e293b' : '#cbd5e1'; ctx.fill();
     if (IMGS[n.id]) {
-      ctx.save(); ctx.beginPath(); ctx.arc(sx,sy,r-1,0,Math.PI*2); ctx.clip();
-      ctx.globalAlpha = n._a * 0.7; ctx.drawImage(IMGS[n.id], sx-r, sy-r, r*2, r*2); ctx.restore();
+      ctx.save(); ctx.beginPath(); ctx.arc(sx,sy,r,0,Math.PI*2); ctx.clip();
+      ctx.globalAlpha = n._a * 0.65; ctx.drawImage(IMGS[n.id], sx-r, sy-r, r*2, r*2); ctx.restore();
+      ctx.globalAlpha = n._a;
     }
     ctx.beginPath(); ctx.arc(sx,sy,r,0,Math.PI*2);
     ctx.strokeStyle = n.color + '99'; ctx.lineWidth = 2; ctx.stroke();
@@ -579,7 +582,7 @@ function drawNode(n, t) {
     ctx.fillStyle = dark ? 'rgba(0,0,0,.7)' : 'rgba(0,0,0,.6)';
     ctx.font = `bold ${11*SCALE}px -apple-system,sans-serif`;
     ctx.fillText('You', sx, sy+.5);
-  } else if (n.degree === 1) {
+  } else if (n.degree === 1 && !IMGS[n.id]) {
     ctx.fillStyle = 'rgba(255,255,255,.9)';
     ctx.font = `bold ${r*.65}px -apple-system,sans-serif`;
     ctx.fillText(n.label[0], sx, sy+.5);
@@ -731,23 +734,26 @@ function loop() {
       n._fx = Math.sin(t * n._fsp + n._fp) * fa;
       n._fy = Math.cos(t * n._fsp * 0.7 + n._fp * 1.3) * fa * 0.75;
     }
-    // Repulsion — slow and floaty (force capped, high inertia)
+    // Repulsion — only activates within ~1 node-radius of the edge, very gentle
     const sx = vx(n), sy = vy(n);
     const ddx = sx - mouseX, ddy = sy - mouseY;
     const dist = Math.sqrt(ddx*ddx + ddy*ddy);
-    const REPEL = DBG.repulseR * SCALE;
+    const nr   = nodeR(n);
+    // REPEL zone: node edge + (DBG.repulseR / 100) * one radius beyond it
+    const REPEL = nr * (1 + DBG.repulseR / 100);
     if (dist < REPEL && dist > 1 && !n._dragging) {
-      const force = (1 - dist/REPEL) * 3.5 * SCALE; // gentler force
-      n._rx = (n._rx||0) + (ddx/dist) * force * 0.15; // slow acceleration
-      n._ry = (n._ry||0) + (ddy/dist) * force * 0.15;
+      const t01  = 1 - dist / REPEL;          // 0 at edge, 1 at center
+      const force = t01 * 0.6 * SCALE;        // very low ceiling
+      n._rx = (n._rx||0) + (ddx/dist) * force * 0.12;
+      n._ry = (n._ry||0) + (ddy/dist) * force * 0.12;
     }
-    // High inertia decay — floaty drift away
-    n._rx = (n._rx||0) * 0.96;
-    n._ry = (n._ry||0) * 0.96;
-    // cap displacement so it never covers the node
-    const maxR = nodeR(n) * 1.2;
+    // Very high inertia — nodes drift back lazily
+    n._rx = (n._rx||0) * 0.97;
+    n._ry = (n._ry||0) * 0.97;
+    // Cap so node stays tappable
+    const maxDisp = nr * 0.6;
     const rmag = Math.sqrt((n._rx||0)**2 + (n._ry||0)**2);
-    if (rmag > maxR) { n._rx = (n._rx/rmag)*maxR; n._ry = (n._ry/rmag)*maxR; }
+    if (rmag > maxDisp) { n._rx = (n._rx/rmag)*maxDisp; n._ry = (n._ry/rmag)*maxDisp; }
   });
 
   const vis = getVisible();
@@ -1022,7 +1028,7 @@ const DBG = {
   sortBy:      'freq',
   bubbleBase:  132,
   floatAmp:    1.0,
-  repulseR:    72,
+  repulseR:    50,
   springSpeed: 0.09,
 };
 
