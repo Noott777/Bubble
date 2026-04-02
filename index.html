@@ -303,7 +303,7 @@ input[type=range]::-webkit-slider-thumb{
 
     <div class="dbg-row">
       <span class="dbg-label">1st degree shown</span>
-      <input type="range" id="d-contacts" min="1" max="6" value="6" step="1">
+      <input type="range" id="d-contacts" min="1" max="30" value="6" step="1">
       <span class="dbg-val" id="d-contacts-val">6</span>
     </div>
     <div class="dbg-row">
@@ -317,7 +317,7 @@ input[type=range]::-webkit-slider-thumb{
     </div>
     <div class="dbg-row" id="d-2nd-row">
       <span class="dbg-label">2nd degree count</span>
-      <input type="range" id="d-2nd" min="0" max="4" value="3" step="1">
+      <input type="range" id="d-2nd" min="0" max="20" value="3" step="1">
       <span class="dbg-val" id="d-2nd-val">3</span>
     </div>
     <div class="dbg-row">
@@ -335,6 +335,32 @@ input[type=range]::-webkit-slider-thumb{
         <div class="seg-opt" data-v="recent">Recency</div>
         <div class="seg-opt" data-v="random">Random</div>
       </div>
+    </div>
+
+    <div class="dbg-divider"></div>
+    <div class="dbg-title">Message Simulation</div>
+
+    <div class="dbg-row">
+      <span class="dbg-label">Particle speed</span>
+      <input type="range" id="d-pspeed" min="5" max="80" value="28" step="1">
+      <span class="dbg-val" id="d-pspeed-val">0.028</span>
+    </div>
+    <div class="dbg-row" style="gap:8px;flex-wrap:wrap">
+      <button onclick="dbgSendRandom()" style="flex:1;padding:8px;border-radius:10px;border:none;background:var(--accent);color:#fff;font-size:12px;font-weight:600;cursor:pointer">
+        ↗ Send to random
+      </button>
+      <button onclick="dbgReceiveRandom()" style="flex:1;padding:8px;border-radius:10px;border:none;background:var(--surface);border:1px solid var(--border);color:var(--text);font-size:12px;font-weight:600;cursor:pointer">
+        ↙ Receive random
+      </button>
+    </div>
+    <div class="dbg-row" style="margin-top:4px">
+      <button onclick="dbgGroupMsg()" style="width:100%;padding:8px;border-radius:10px;border:1px solid #34d39966;background:rgba(52,211,153,.12);color:#34d399;font-size:12px;font-weight:600;cursor:pointer">
+        ↗ Group broadcast
+      </button>
+    </div>
+    <div class="dbg-row">
+      <span class="dbg-label">Auto-simulate</span>
+      <div class="dbg-toggle" id="d-autoMsg"></div>
     </div>
 
     <div class="dbg-divider"></div>
@@ -761,6 +787,219 @@ function loop() {
   drawEdges(vis);
   [3,2,1].forEach(d => NODES.filter(n=>n.degree===d&&vis.has(n.id)).forEach(n=>drawNode(n,t)));
   drawNode(NODES[0], t);
+  drawParticles();
+}
+
+// ── MESSAGE PARTICLES ─────────────────────────────────────────────────────────
+const particles = [];
+
+class MsgParticle {
+  constructor(segments, color, onArrive) {
+    // segments: array of [nodeA, nodeB] pairs to traverse in order
+    this.segs     = segments;
+    this.si       = 0;       // current segment index
+    this.progress = 0;
+    this.speed    = DBG.particleSpeed;
+    this.color    = color;
+    this.onArrive = onArrive;
+    this.trail    = [];
+    this.done     = false;
+  }
+  tick() {
+    if (this.done) return;
+    this.progress += this.speed;
+    const [a, b] = this.segs[this.si];
+    const x = vx(a) + (vx(b) - vx(a)) * this.progress;
+    const y = vy(a) + (vy(b) - vy(a)) * this.progress;
+    this.trail.unshift({x, y});
+    if (this.trail.length > 10) this.trail.pop();
+    if (this.progress >= 1) {
+      this.progress = 0;
+      this.si++;
+      if (this.si >= this.segs.length) {
+        this.done = true;
+        if (this.onArrive) this.onArrive();
+      }
+    }
+  }
+  draw() {
+    if (!this.trail.length) return;
+    this.trail.forEach(({x,y}, i) => {
+      const a = (1 - i / this.trail.length) * 0.92;
+      const r = Math.max(0.5, (4.5 - i * 0.38) * SCALE);
+      ctx.save();
+      ctx.globalAlpha = a;
+      // Glow
+      const gr = ctx.createRadialGradient(x,y,0,x,y,r*2.5);
+      gr.addColorStop(0, this.color);
+      gr.addColorStop(1, this.color + '00');
+      ctx.beginPath(); ctx.arc(x,y,r*2.5,0,Math.PI*2);
+      ctx.fillStyle = gr; ctx.fill();
+      // Core dot
+      ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2);
+      ctx.fillStyle = '#ffffff';
+      ctx.fill();
+      ctx.restore();
+    });
+  }
+}
+
+function drawParticles() {
+  for (let i = particles.length - 1; i >= 0; i--) {
+    particles[i].tick();
+    particles[i].draw();
+    if (particles[i].done) particles.splice(i, 1);
+  }
+}
+
+// Send a message particle: You → target node
+function sendMsg(targetNode) {
+  const you = NODES[0];
+  if (targetNode.type === 'group') {
+    // You → Group, then Group → each member node
+    const p = new MsgParticle([[you, targetNode]], '#34d399', () => {
+      // fan out to member nodes with staggered delay
+      (targetNode.members || []).forEach((name, i) => {
+        const m = NODES.find(n => n.label === name && n.type === 'contact' && n.degree === 1);
+        if (!m) return;
+        setTimeout(() => {
+          particles.push(new MsgParticle([[targetNode, m]], '#34d399'));
+        }, i * 80);
+      });
+    });
+    particles.push(p);
+  } else {
+    particles.push(new MsgParticle([[you, targetNode]], targetNode.color || '#a78bfa'));
+  }
+}
+
+// Receive a message particle: source node → You
+function receiveMsg(sourceNode) {
+  const you = NODES[0];
+  if (sourceNode.type === 'group') {
+    // Pick a random member as visual sender
+    const names = sourceNode.members || [];
+    const senderName = names[Math.floor(Math.random() * names.length)];
+    const sender = NODES.find(n => n.label === senderName && n.degree === 1) || sourceNode;
+    const p = new MsgParticle([[sender, sourceNode]], '#34d399', () => {
+      particles.push(new MsgParticle([[sourceNode, you]], '#34d399'));
+    });
+    particles.push(p);
+  } else {
+    particles.push(new MsgParticle([[sourceNode, you]], sourceNode.color || '#a78bfa'));
+  }
+}
+
+// ── CHAT PANEL ────────────────────────────────────────────────────────────────
+let activeChatNode = null;
+
+function openChat(node) {
+  activeChatNode = node;
+  const scroll = document.getElementById('panel-scroll');
+  scroll.innerHTML = buildChatPanel(node);
+  document.getElementById('panel').classList.add('on');
+  document.getElementById('overlay').classList.add('on');
+  // Simulate an incoming message after a moment
+  setTimeout(() => receiveMsg(node), 900);
+}
+
+function buildChatPanel(node) {
+  const name = node.label.replace('\n',' ');
+  const color = node.type === 'group' ? '#34d399' : node.color;
+  const imgTag = node.img
+    ? `<img src="${node.img}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`
+    : `<span style="font-size:22px;font-weight:700;color:#fff">${node.label[0]}</span>`;
+  const mockMsgs = node.type === 'group'
+    ? [
+        {from:node.members?.[0]||name, text:'Who\'s free Saturday? 🙌', t:'3:12 PM'},
+        {from:node.members?.[1]||name, text:'I\'m in! What time?', t:'3:14 PM'},
+        {from:'me', text:'Same, just let me know 👍', t:'3:15 PM'},
+      ]
+    : [
+        {from:name, text:'Hey! What are you up to?', t:'2:30 PM'},
+        {from:'me', text:'Not much, just chilling', t:'2:32 PM'},
+        {from:name, text:'Come join us later 🎉', t:'2:33 PM'},
+      ];
+
+  const msgs = mockMsgs.map(m => `
+    <div style="display:flex;flex-direction:column;align-items:${m.from==='me'?'flex-end':'flex-start'};margin-bottom:8px">
+      ${m.from!=='me'?`<div style="font-size:10px;color:var(--text-muted);margin-bottom:2px;padding:0 4px">${m.from}</div>`:''}
+      <div style="max-width:75%;padding:8px 13px;border-radius:${m.from==='me'?'16px 16px 4px 16px':'16px 16px 16px 4px'};
+        background:${m.from==='me'?`linear-gradient(135deg,${color}cc,${color})`:'var(--surface)'};
+        border:1px solid ${m.from==='me'?color+'44':'var(--border)'};
+        font-size:13.5px;line-height:1.5;color:var(--text)">
+        ${m.text}
+        <div style="font-size:10px;opacity:.4;margin-top:2px;text-align:right">${m.t}</div>
+      </div>
+    </div>`).join('');
+
+  return `
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+      <div style="width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,${color}88,${color});flex-shrink:0;display:flex;align-items:center;justify-content:center;overflow:hidden">
+        ${imgTag}
+      </div>
+      <div>
+        <div style="font-size:16px;font-weight:700">${name}</div>
+        <div style="font-size:11px;color:var(--text-muted)">${node.type==='group'?`${node.members?.length||0} members`:`${node.degree===1?'1st':'2nd'} degree · Active recently`}</div>
+      </div>
+    </div>
+    <div id="chat-msgs" style="min-height:140px;margin-bottom:16px">${msgs}</div>
+    <div style="display:flex;gap:8px;align-items:flex-end">
+      <textarea id="chat-input" placeholder="Message ${name}…" rows="1"
+        style="flex:1;background:var(--surface);border:1px solid var(--border);border-radius:12px;
+               padding:9px 13px;color:var(--text);font-size:13px;outline:none;resize:none;
+               font-family:inherit;line-height:1.4;max-height:80px"
+        oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,80)+'px'"></textarea>
+      <button onclick="submitChat()" style="width:38px;height:38px;border-radius:50%;border:none;
+        background:linear-gradient(135deg,${color}cc,${color});color:#fff;cursor:pointer;
+        display:flex;align-items:center;justify-content:center;flex-shrink:0">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+          <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+        </svg>
+      </button>
+    </div>`;
+}
+
+function submitChat() {
+  const input = document.getElementById('chat-input');
+  const text  = input?.value.trim();
+  if (!text || !activeChatNode) return;
+  // Add message to chat UI
+  const msgs = document.getElementById('chat-msgs');
+  const color = activeChatNode.type==='group' ? '#34d399' : activeChatNode.color;
+  const now   = new Date();
+  const tStr  = now.getHours()+':'+(now.getMinutes()+'').padStart(2,'0');
+  msgs.innerHTML += `
+    <div style="display:flex;flex-direction:column;align-items:flex-end;margin-bottom:8px">
+      <div style="max-width:75%;padding:8px 13px;border-radius:16px 16px 4px 16px;
+        background:linear-gradient(135deg,${color}cc,${color});
+        border:1px solid ${color}44;font-size:13.5px;line-height:1.5;color:#fff">
+        ${text}<div style="font-size:10px;opacity:.4;margin-top:2px;text-align:right">${tStr}</div>
+      </div>
+    </div>`;
+  msgs.scrollTop = msgs.scrollHeight;
+  input.value = ''; input.style.height = 'auto';
+  // Fire particle
+  sendMsg(activeChatNode);
+  // Simulate reply
+  const replies = ['👍','on it!','sounds good','omg yes','haha fr','❤️','let\'s go'];
+  setTimeout(() => {
+    receiveMsg(activeChatNode);
+    setTimeout(() => {
+      if (!document.getElementById('chat-msgs')) return;
+      const name = activeChatNode.label.replace('\n',' ');
+      document.getElementById('chat-msgs').innerHTML += `
+        <div style="display:flex;flex-direction:column;align-items:flex-start;margin-bottom:8px">
+          <div style="font-size:10px;color:var(--text-muted);margin-bottom:2px;padding:0 4px">${name}</div>
+          <div style="max-width:75%;padding:8px 13px;border-radius:16px 16px 16px 4px;
+            background:var(--surface);border:1px solid var(--border);font-size:13.5px;line-height:1.5;color:var(--text)">
+            ${replies[Math.floor(Math.random()*replies.length)]}
+            <div style="font-size:10px;opacity:.4;margin-top:2px">${tStr}</div>
+          </div>
+        </div>`;
+      document.getElementById('chat-msgs').scrollTop = 99999;
+    }, 600);
+  }, 900);
 }
 
 // ── FILTER CHIPS ──────────────────────────────────────────────────────────────
@@ -868,6 +1107,10 @@ const pscroll = document.getElementById('panel-scroll');
 const overlay = document.getElementById('overlay');
 
 function openPanel(n) {
+  // If it's a messageable node, open chat directly; otherwise show profile
+  if (n.degree === 1 || n.type === 'group') {
+    openChat(n); return;
+  }
   pscroll.innerHTML = buildPanel(n);
   panel.classList.add('on');
   overlay.classList.add('on');
@@ -1026,10 +1269,11 @@ const DBG = {
   max2nd:      3,
   show3rd:     true,
   sortBy:      'freq',
-  bubbleBase:  132,
-  floatAmp:    1.0,
-  repulseR:    50,
-  springSpeed: 0.09,
+  bubbleBase:    132,
+  floatAmp:      1.0,
+  repulseR:      50,
+  springSpeed:   0.09,
+  particleSpeed: 0.028,
 };
 
 // Override BUBBLE_R and physics reads with DBG values
@@ -1104,6 +1348,35 @@ dbgSlider('d-repulse',  'd-repulse-val',  'repulseR');
 document.getElementById('d-spring').addEventListener('input', function() {
   DBG.springSpeed = this.value / 100;
   document.getElementById('d-spring-val').textContent = DBG.springSpeed.toFixed(2);
+});
+document.getElementById('d-pspeed').addEventListener('input', function() {
+  DBG.particleSpeed = this.value / 1000;
+  document.getElementById('d-pspeed-val').textContent = DBG.particleSpeed.toFixed(3);
+});
+
+// Simulation helpers
+function dbgRandom1st() {
+  const pool = NODES.filter(n => n.degree === 1 && n.type === 'contact');
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+function dbgSendRandom()    { const n = dbgRandom1st(); if (n) sendMsg(n); }
+function dbgReceiveRandom() { const n = dbgRandom1st(); if (n) receiveMsg(n); }
+function dbgGroupMsg() {
+  const g = NODES.find(n => n.type === 'group');
+  if (g) sendMsg(g);
+}
+
+// Auto-simulate toggle
+let _autoMsgInterval = null;
+dbgToggle('d-autoMsg', '_autoMsgDummy', null);
+document.getElementById('d-autoMsg').addEventListener('click', function() {
+  if (_autoMsgInterval) {
+    clearInterval(_autoMsgInterval); _autoMsgInterval = null;
+  } else {
+    _autoMsgInterval = setInterval(() => {
+      Math.random() > 0.5 ? dbgSendRandom() : dbgReceiveRandom();
+    }, 1400);
+  }
 });
 
 // toggles
