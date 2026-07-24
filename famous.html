@@ -1,0 +1,1029 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no"/>
+<title>Jordan Cross · Bubble</title>
+<style>
+:root {
+  --bg:#080810;--surface:rgba(255,255,255,0.06);--border:rgba(255,255,255,0.10);
+  --text:#ffffff;--text-muted:rgba(255,255,255,0.45);--accent:#7c6fff;
+  --nav-bg:rgba(8,8,16,0.92);
+}
+[data-theme="light"] {
+  --bg:#f0f0f8;--surface:rgba(0,0,0,0.05);--border:rgba(0,0,0,0.10);
+  --text:#0a0a14;--text-muted:rgba(0,0,0,0.40);--accent:#5b4fff;
+  --nav-bg:rgba(240,240,248,0.92);
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;transition:background .3s;}
+
+#header{
+  position:fixed;top:0;left:0;right:0;height:62px;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 16px;background:var(--nav-bg);backdrop-filter:blur(20px);
+  border-bottom:1px solid var(--border);z-index:50;
+}
+.back-btn{
+  width:34px;height:34px;border-radius:50%;background:var(--surface);
+  border:1px solid var(--border);display:flex;align-items:center;
+  justify-content:center;cursor:pointer;color:var(--text);
+  text-decoration:none;flex-shrink:0;
+}
+.celeb-info{text-align:center;flex:1;padding:0 10px;}
+.celeb-name{
+  font-size:15px;font-weight:800;letter-spacing:-.3px;
+  background:linear-gradient(135deg,#fbbf24,#f59e0b,#ef4444);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+}
+.celeb-sub{font-size:10px;color:var(--text-muted);margin-top:1px;}
+.icon-btn{
+  width:34px;height:34px;border-radius:50%;background:var(--surface);
+  border:1px solid var(--border);display:flex;align-items:center;
+  justify-content:center;cursor:pointer;color:var(--text);transition:background .2s;flex-shrink:0;
+}
+#canvas{position:fixed;top:0;left:0;width:100%;height:100%;touch-action:none;}
+
+#overlay{position:fixed;inset:0;background:rgba(0,0,0,0.55);opacity:0;
+  pointer-events:none;transition:opacity .3s;z-index:60;}
+#overlay.on{opacity:1;pointer-events:all;}
+
+#panel{
+  position:fixed;bottom:0;left:0;right:0;height:72vh;background:var(--bg);
+  border-top-left-radius:24px;border-top-right-radius:24px;
+  border-top:1px solid var(--border);
+  transform:translateY(100%);transition:transform .4s cubic-bezier(.32,.72,0,1);
+  z-index:70;display:flex;flex-direction:column;
+}
+#panel.on{transform:translateY(0);}
+.panel-handle{width:36px;height:4px;background:var(--border);border-radius:2px;margin:12px auto 0;flex-shrink:0;}
+#panel-scroll{flex:1;overflow-y:auto;padding:16px 20px 32px;}
+#panel-scroll::-webkit-scrollbar{width:3px;}
+#panel-scroll::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+
+.p-header{display:flex;align-items:center;gap:14px;margin-bottom:16px;}
+.p-avatar-wrap{position:relative;flex-shrink:0;}
+.p-story-ring{position:absolute;inset:-3px;border-radius:50%;
+  background:conic-gradient(#a78bfa,#60a5fa,#34d399,#f59e0b,#f472b6,#a78bfa);}
+.p-story-gap{position:absolute;inset:-1px;border-radius:50%;border:2px solid var(--bg);z-index:1;}
+.p-avatar{
+  width:62px;height:62px;border-radius:50%;display:flex;align-items:center;
+  justify-content:center;font-size:24px;font-weight:700;color:#fff;
+  position:relative;z-index:2;
+}
+.p-name{font-size:18px;font-weight:700;}
+.p-role{font-size:11px;color:var(--text-muted);margin-top:3px;}
+.badge{display:inline-block;padding:2px 10px;border-radius:10px;font-size:11px;font-weight:600;margin-top:4px;}
+.b1{background:rgba(167,139,250,.2);color:#a78bfa;}
+.b2{background:rgba(96,165,250,.2);color:#60a5fa;}
+.b3{background:rgba(148,163,184,.2);color:#94a3b8;}
+.bg{background:rgba(52,211,153,.2);color:#34d399;}
+.bstar{background:linear-gradient(135deg,rgba(251,191,36,.25),rgba(245,158,11,.2));color:#fbbf24;}
+.p-bio{font-size:12px;color:var(--text-muted);margin-top:5px;}
+.p-mutual{font-size:12px;color:var(--text-muted);margin-bottom:14px;}
+.p-actions{display:flex;gap:10px;margin-bottom:18px;}
+.btn{flex:1;padding:10px;border-radius:12px;font-size:13px;font-weight:600;
+  border:none;cursor:pointer;transition:opacity .2s;}
+.btn:active{opacity:.75;}
+.btn-pri{background:var(--accent);color:#fff;}
+.btn-sec{background:var(--surface);color:var(--text);border:1px solid var(--border);}
+.p-section-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;
+  color:var(--text-muted);margin-bottom:8px;display:flex;align-items:center;gap:8px;}
+.lim-tag{background:rgba(167,139,250,.15);color:#a78bfa;padding:2px 7px;border-radius:6px;font-size:10px;}
+.posts-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:3px;margin-bottom:16px;}
+.post-cell{aspect-ratio:1;border-radius:6px;overflow:hidden;display:flex;
+  align-items:center;justify-content:center;font-size:20px;}
+.members-wrap{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:16px;}
+.member-chip{background:var(--surface);border:1px solid var(--border);
+  padding:4px 13px;border-radius:20px;font-size:13px;}
+.locked-wall{display:flex;flex-direction:column;align-items:center;
+  gap:8px;padding:28px 16px;text-align:center;color:var(--text-muted);}
+.locked-wall .lock-icon{font-size:36px;}
+.locked-wall strong{color:var(--text);}
+</style>
+</head>
+<body>
+
+<div id="header">
+  <a href="index.html" class="back-btn">
+    <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+      <path d="M19 12H5M12 5l-7 7 7 7"/>
+    </svg>
+  </a>
+  <div class="celeb-info">
+    <div class="celeb-name">Jordan Cross ⭐</div>
+    <div class="celeb-sub">Pop Artist · 47.2M followers · Bubble since 2024</div>
+  </div>
+  <div class="icon-btn" id="themeBtn">
+    <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="5"/>
+      <line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+      <line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+    </svg>
+  </div>
+</div>
+
+<canvas id="canvas"></canvas>
+<div id="overlay"></div>
+<div id="panel">
+  <div class="panel-handle"></div>
+  <div id="panel-scroll"></div>
+</div>
+
+<script>
+// ── DATA GENERATION ───────────────────────────────────────────────────────────
+
+const CONTACT_DEF = [
+  // [id, label, role, color, msgFreq, pravatar_img]
+  ['sophie', 'Sophie',  'Manager',           '#a78bfa', 0.98, 47],
+  ['nina',   'Nina',    'Best Friend 💜',    '#f472b6', 0.94, 33],
+  ['mia',    'Mia',     'Sister 👧',          '#fb923c', 0.92,  3],
+  ['leo',    'Leo',     'Dad 👨',             '#fbbf24', 0.90, 52],
+  ['eva',    'Eva',     'Mum 👩',             '#34d399', 0.88,  5],
+  ['marcus', 'Marcus',  'Bassist 🎸',         '#60a5fa', 0.86,  9],
+  ['kai',    'Kai',     'Producer 🎛',        '#818cf8', 0.85, 65],
+  ['river',  'River',   'Guitarist 🎸',       '#38bdf8', 0.80, 12],
+  ['zoe',    'Zoe',     'Stylist ✂️',         '#c4b5fd', 0.80, 25],
+  ['ben',    'Ben',     'Tour Manager 🗺',   '#6ee7b7', 0.78, 17],
+  ['lena',   'Lena',    'Publicist 📰',       '#f9a8d4', 0.75, 14],
+  ['chloe',  'Chloe',   'Socials 📱',         '#a5b4fc', 0.74,  6],
+  ['sam',    'Sam',     'Drummer 🥁',         '#7dd3fc', 0.72,  1],
+  ['dom',    'Dom',     'Security 🛡',        '#64748b', 0.70, 68],
+  ['jake',   'Jake',    'Choreographer 💃',   '#fda4af', 0.65,  8],
+  ['isla',   'Isla',    'Art Director 🎨',    '#86efac', 0.62, 22],
+  ['aria',   'Aria',    'Backup Vocal 🎤',    '#d8b4fe', 0.60, 26],
+  ['drew',   'Drew',    'Trainer 💪',         '#93c5fd', 0.58,  4],
+  ['tyler',  'Tyler',   'Keyboardist 🎹',     '#c084fc', 0.55, 66],
+  ['reed',   'Reed',    'DJ 🎧',              '#67e8f9', 0.52, 45],
+  ['oscar',  'Oscar',   'Lawyer ⚖️',          '#cbd5e1', 0.50, 15],
+  ['ash',    'Ash',     'Sound Eng. 🎚',      '#94a3b8', 0.44,  7],
+  ['finn',   'Finn',    'Lighting 💡',        '#fef08a', 0.42, 50],
+  ['belle',  'Belle',   'Label Rep 🏢',       '#f0abfc', 0.38, 18],
+  ['priya',  'Priya',   'Accountant 📊',      '#bbf7d0', 0.35, 10],
+];
+
+const GROUP_DEF = [
+  ['g-tour',   'Tour Team',  '#34d399', ['Ben','Dom','Finn','Ash','Jake']],
+  ['g-band',   'Band 🎸',    '#38bdf8', ['Marcus','River','Sam','Tyler']],
+  ['g-family', 'Family 🏠',  '#fb923c', ['Mia','Leo','Eva']],
+  ['g-squad',  'Squad 💫',   '#f472b6', ['Nina','Zoe','Sophie']],
+  ['g-label',  'Label Chat', '#a5b4fc', ['Belle','Lena','Chloe','Oscar']],
+];
+
+const D2_NAMES = [
+  'Alex','Jamie','Casey','Luke','Amber','Dante','Suki','Rory','Jade','Max',
+  'Penny','Beau','Nora','Hugo','Tara','Eli','Luna','Cole','Wren','Seth',
+  'Dawn','Ezra','Sage','Colt','Quinn','Mae','Juno','Zara','Nico','Briar',
+  'Clay','Reef','Hana','Jett','Remi','Lyra','Fox','Pip','Oz','Val',
+  'Dex','Faye','Rio','Sol','Mako','Crow','Wave','Teo','Mila','Bex',
+  'Lore','Jude','Bren','Pax','Dara','Idris','Cece','Yael','Rue','Sev'
+];
+const D2_COLORS = ['#60a5fa','#818cf8','#38bdf8','#93c5fd','#7dd3fc','#a5b4fc','#c4b5fd','#6ee7b7','#86efac'];
+const D2_IMGS   = [2,11,13,16,19,20,21,23,24,27,28,29,30,31,32,34,35,36,37,38,
+                   39,40,41,42,43,44,46,48,49,51,53,54,55,56,57,58,59,60,61,62,63,64,67,69,70];
+
+// Build node arrays
+const CONTACTS1 = CONTACT_DEF.map(([id,label,role,color,freq,img]) => ({
+  id, label, role, type:'contact', degree:1, msgFreq:freq, color,
+  hasStory: freq > 0.72,
+  mutuals: Math.max(1, Math.round(freq * 6)),
+  via: null, bio: role,
+  posts: [color, color + 'bb', color + '55'],
+  img: `https://i.pravatar.cc/150?img=${img}`
+}));
+
+const GROUPS = GROUP_DEF.map(([id,label,color,members]) => ({
+  id, label, type:'group', degree:1, msgFreq:0.8, color,
+  hasStory:false, members, posts:[color, color+'88']
+}));
+
+// Generate 2nd degree
+const CONTACTS2 = [], EDGES_D2 = [];
+let d2i = 0;
+CONTACTS1.forEach(c => {
+  const cnt = c.msgFreq > 0.7 ? 3 : 2;
+  for (let j = 0; j < cnt; j++, d2i++) {
+    const id = `d2-${d2i}`;
+    CONTACTS2.push({
+      id, label: D2_NAMES[d2i % D2_NAMES.length],
+      type:'contact', degree:2, msgFreq:0,
+      color: D2_COLORS[d2i % D2_COLORS.length],
+      hasStory:false,
+      mutuals: 1 + (d2i % 3),
+      via: c.label, bio:'',
+      posts:[D2_COLORS[d2i % D2_COLORS.length]],
+      img: `https://i.pravatar.cc/150?img=${D2_IMGS[d2i % D2_IMGS.length]}`
+    });
+    EDGES_D2.push([c.id, id]);
+  }
+});
+
+// Generate 3rd degree ghost nodes (every 3rd 2nd-degree gets 2 ghosts)
+const CONTACTS3 = [], EDGES_D3 = [];
+let d3i = 0;
+CONTACTS2.forEach((c, ci) => {
+  if (ci % 3 !== 0) return;
+  for (let j = 0; j < 2; j++, d3i++) {
+    const id = `d3-${d3i}`;
+    CONTACTS3.push({
+      id, label:'???', type:'contact', degree:3, msgFreq:0,
+      color:'#94a3b8', hasStory:false, mutuals:0, via:c.label, bio:'', posts:[]
+    });
+    EDGES_D3.push([c.id, id]);
+  }
+});
+
+// Jordan Cross — celebrity self node
+const JORDAN = {
+  id:'jordan', label:'Jordan Cross', type:'self', degree:0,
+  msgFreq:1.0, color:'#fbbf24', hasStory:false
+};
+
+const NODES = [JORDAN, ...CONTACTS1, ...GROUPS, ...CONTACTS2, ...CONTACTS3];
+
+// Edges
+const EDGES = [
+  ...CONTACTS1.map(c  => ['jordan', c.id]),
+  ...GROUPS.map(g     => ['jordan', g.id]),
+  ...GROUP_DEF.flatMap(([gid,,,members]) =>
+    members.map(name => {
+      const c = CONTACTS1.find(x => x.label === name);
+      return c ? [gid, c.id] : null;
+    }).filter(Boolean)
+  ),
+  ['sophie','nina'],['nina','mia'],['marcus','river'],['marcus','sam'],
+  ['river','sam'],['river','tyler'],['lena','chloe'],['lena','belle'],
+  ['zoe','nina'],['jake','aria'],['kai','reed'],['kai','tyler'],
+  ...EDGES_D2,
+  ...EDGES_D3,
+];
+
+// ── IMAGE PRELOAD ─────────────────────────────────────────────────────────────
+const IMGS = {};
+NODES.forEach(n => {
+  if (!n.img) return;
+  const im = new Image();
+  im.crossOrigin = 'anonymous';
+  im.onload = () => { IMGS[n.id] = im; };
+  im.src = n.img;
+});
+
+// ── CANVAS SETUP ──────────────────────────────────────────────────────────────
+const canvas = document.getElementById('canvas');
+const ctx    = canvas.getContext('2d');
+let W, H, CX, CY, SCALE, DPR;
+let panX = 0, panY = 0;
+let mouseX = -9999, mouseY = -9999;
+let hoverNode = null;
+const T0 = Date.now();
+const ENTRY_STAGGER = 38;
+
+const BUBBLE_R     = () => 175 * SCALE;
+const SPRING_SPD   = 0.07;
+const FLOAT_AMP    = 0.8;
+const REPULSE_R    = 50;
+const PARTICLE_SPD = 0.026;
+
+function resize() {
+  DPR = window.devicePixelRatio || 1;
+  W   = window.innerWidth;
+  H   = window.innerHeight;
+  canvas.width  = W * DPR;
+  canvas.height = H * DPR;
+  canvas.style.width  = W + 'px';
+  canvas.style.height = H + 'px';
+  ctx.scale(DPR, DPR);
+  CX    = W / 2;
+  CY    = 62 + (H - 62) / 2;
+  SCALE = Math.min(W, H) / 420;
+  placeNodes();
+}
+window.addEventListener('resize', resize);
+
+// ── NODE PLACEMENT ────────────────────────────────────────────────────────────
+function placeNodes() {
+  const br = BUBBLE_R();
+  const byDeg = {1:[], 2:[], 3:[]};
+  NODES.forEach(n => { if (n.degree >= 1 && n.degree <= 3) byDeg[n.degree].push(n); });
+
+  byDeg[1].forEach((n, i) => {
+    if (n._angle === undefined) n._angle = (i / byDeg[1].length) * Math.PI * 2;
+    const r = br * (0.30 + (1 - n.msgFreq) * 0.44);
+    n._tx = Math.cos(n._angle) * r;
+    n._ty = Math.sin(n._angle) * r;
+    if (n._x === undefined) { n._x = n._tx * 0.6; n._y = n._ty * 0.6; n._s = 0; n._a = 0; }
+  });
+
+  byDeg[2].forEach((n, i) => {
+    if (n._angle === undefined) {
+      const ring = Math.floor(i / 12), pos = i % 12;
+      n._angle = (pos / 12) * Math.PI * 2 + ring * 0.52;
+    }
+    const ring = Math.floor(i / 12);
+    const r = br * (1.04 + ring * 0.16);
+    n._tx = Math.cos(n._angle) * r;
+    n._ty = Math.sin(n._angle) * r;
+    if (n._x === undefined) { n._x = n._tx * 0.8; n._y = n._ty * 0.8; n._s = 0; n._a = 0; }
+  });
+
+  byDeg[3].forEach((n, i) => {
+    if (n._angle === undefined) {
+      const ring = Math.floor(i / 10), pos = i % 10;
+      n._angle = (pos / 10) * Math.PI * 2 + ring * 0.65;
+    }
+    const ring = Math.floor(i / 10);
+    const r = br * (1.55 + ring * 0.14);
+    n._tx = Math.cos(n._angle) * r;
+    n._ty = Math.sin(n._angle) * r;
+    if (n._x === undefined) { n._x = n._tx * 0.8; n._y = n._ty * 0.8; n._s = 0; n._a = 0; }
+  });
+
+  const self = NODES[0];
+  self._x = self._tx = 0; self._y = self._ty = 0; self._s = 1; self._a = 1;
+}
+
+// ── HELPERS ───────────────────────────────────────────────────────────────────
+function nodeR(n) {
+  if (n.type === 'self')  return 38 * SCALE;
+  if (n.type === 'group') return 15 * SCALE;
+  if (n.degree === 1)     return (10 + n.msgFreq * 5) * SCALE;
+  if (n.degree === 2)     return 9 * SCALE;
+  return 6.5 * SCALE;
+}
+function vx(n) { return wx(n._x + (n._fx||0) + (n._rx||0)); }
+function vy(n) { return wy(n._y + (n._fy||0) + (n._ry||0)); }
+function wx(x) { return CX + x + panX; }
+function wy(y) { return CY + y + panY; }
+function lighten(hex, amt) {
+  const r = Math.min(255, parseInt(hex.slice(1,3),16)+amt);
+  const g = Math.min(255, parseInt(hex.slice(3,5),16)+amt);
+  const b = Math.min(255, parseInt(hex.slice(5,7),16)+amt);
+  return `rgb(${r},${g},${b})`;
+}
+function lightenCSS(hex, amt) { return lighten(hex, amt); }
+
+// ── DRAW NODE ─────────────────────────────────────────────────────────────────
+function drawNode(n, t) {
+  if (!n._a || n._a <= 0) return;
+  const sx = vx(n), sy = vy(n);
+  const r  = nodeR(n) * n._s;
+  const dark = document.documentElement.dataset.theme === 'dark';
+  ctx.save();
+  ctx.globalAlpha = n._a;
+
+  // Story ring
+  if (n.hasStory) {
+    const hr = (t * 25) % 360;
+    for (let i = 0; i < 24; i++) {
+      const a1 = (i/24)*Math.PI*2 - Math.PI/2, a2 = ((i+1)/24)*Math.PI*2 - Math.PI/2;
+      ctx.beginPath(); ctx.arc(sx,sy,r+4*SCALE,a1,a2);
+      ctx.strokeStyle = `hsl(${(hr+i*15)%360},80%,65%)`;
+      ctx.lineWidth = 2; ctx.stroke();
+    }
+  }
+
+  // Activity glow
+  if (n.degree === 1 && n.msgFreq > 0.6) {
+    const pulse = 0.5 + 0.5*Math.sin(t*1.5+n.id.charCodeAt(0));
+    const gr = ctx.createRadialGradient(sx,sy,r,sx,sy,r+(6+pulse*4)*SCALE);
+    gr.addColorStop(0,n.color+'44'); gr.addColorStop(1,n.color+'00');
+    ctx.beginPath(); ctx.arc(sx,sy,r+(6+pulse*4)*SCALE,0,Math.PI*2);
+    ctx.fillStyle = gr; ctx.fill();
+  }
+
+  if (n.type === 'self') {
+    // Gold radial fill
+    const gr = ctx.createRadialGradient(sx-r*.3,sy-r*.3,0,sx,sy,r);
+    gr.addColorStop(0,'#fffde7'); gr.addColorStop(.4,'#fbbf24');
+    gr.addColorStop(.8,'#d97706'); gr.addColorStop(1,'#92400e');
+    ctx.beginPath(); ctx.arc(sx,sy,r,0,Math.PI*2);
+    ctx.fillStyle = gr; ctx.fill();
+    // Pulsing gold outer glow
+    const pulse = 0.5 + 0.5*Math.sin(t*2.1);
+    const glow = ctx.createRadialGradient(sx,sy,r,sx,sy,r*2.1);
+    glow.addColorStop(0,`rgba(251,191,36,${0.18+pulse*0.12})`);
+    glow.addColorStop(1,'rgba(251,191,36,0)');
+    ctx.beginPath(); ctx.arc(sx,sy,r*2.1,0,Math.PI*2);
+    ctx.fillStyle = glow; ctx.fill();
+    // Iridescent rainbow ring
+    const hShift = (t*55)%360;
+    for (let i = 0; i < 32; i++) {
+      const a1=(i/32)*Math.PI*2, a2=((i+1)/32)*Math.PI*2;
+      ctx.beginPath(); ctx.arc(sx,sy,r,a1,a2);
+      ctx.strokeStyle = `hsla(${(hShift+i*11.25)%360},90%,68%,.9)`;
+      ctx.lineWidth = 3.5; ctx.stroke();
+    }
+    // Crown emoji
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.globalAlpha = n._a;
+    ctx.font = `${r*.72}px sans-serif`;
+    ctx.fillText('👑', sx, sy+.5);
+
+  } else if (n.type === 'group') {
+    const gr = ctx.createRadialGradient(sx-r*.3,sy-r*.3,0,sx,sy,r);
+    gr.addColorStop(0,lighten(n.color,55)); gr.addColorStop(1,n.color);
+    ctx.beginPath(); ctx.arc(sx,sy,r,0,Math.PI*2);
+    ctx.fillStyle=gr; ctx.fill();
+    ctx.strokeStyle=n.color+'cc'; ctx.lineWidth=1.5; ctx.stroke();
+
+  } else if (n.degree === 1) {
+    const gr = ctx.createRadialGradient(sx-r*.3,sy-r*.3,0,sx,sy,r);
+    gr.addColorStop(0,lighten(n.color,50)); gr.addColorStop(1,n.color);
+    ctx.beginPath(); ctx.arc(sx,sy,r,0,Math.PI*2);
+    ctx.fillStyle=gr; ctx.fill();
+    if (IMGS[n.id]) {
+      ctx.save(); ctx.beginPath(); ctx.arc(sx,sy,r,0,Math.PI*2); ctx.clip();
+      ctx.drawImage(IMGS[n.id],sx-r,sy-r,r*2,r*2); ctx.restore();
+    }
+    ctx.beginPath(); ctx.arc(sx,sy,r,0,Math.PI*2);
+    ctx.strokeStyle=n.color+'cc'; ctx.lineWidth=2; ctx.stroke();
+
+  } else if (n.degree === 2) {
+    ctx.beginPath(); ctx.arc(sx,sy,r,0,Math.PI*2);
+    ctx.fillStyle = dark?'#1e293b':'#cbd5e1'; ctx.fill();
+    if (IMGS[n.id]) {
+      ctx.save(); ctx.beginPath(); ctx.arc(sx,sy,r,0,Math.PI*2); ctx.clip();
+      ctx.globalAlpha = n._a*0.55;
+      ctx.drawImage(IMGS[n.id],sx-r,sy-r,r*2,r*2);
+      ctx.restore(); ctx.globalAlpha=n._a;
+    }
+    ctx.beginPath(); ctx.arc(sx,sy,r,0,Math.PI*2);
+    ctx.strokeStyle=n.color+'77'; ctx.lineWidth=1.5; ctx.stroke();
+
+  } else { // ghost
+    ctx.beginPath(); ctx.arc(sx,sy,r,0,Math.PI*2);
+    ctx.fillStyle = dark?'rgba(30,41,59,.35)':'rgba(203,213,225,.35)'; ctx.fill();
+    ctx.setLineDash([2,3]);
+    ctx.strokeStyle = dark?'rgba(148,163,184,.25)':'rgba(100,116,139,.25)';
+    ctx.lineWidth=1; ctx.stroke(); ctx.setLineDash([]);
+  }
+
+  // Initials / icons (when no image)
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  if (n.degree===1 && !IMGS[n.id]) {
+    ctx.fillStyle='rgba(255,255,255,.9)';
+    ctx.font=`bold ${r*.65}px -apple-system,sans-serif`;
+    ctx.fillText(n.label[0],sx,sy+.5);
+  } else if (n.type==='group') {
+    ctx.font=`${r*.75}px sans-serif`;
+    const em = n.label.match(/\p{Emoji_Presentation}|\p{Extended_Pictographic}/u)?.[0]||'👥';
+    ctx.fillText(em,sx,sy+.5);
+  } else if (n.degree===3) {
+    ctx.font=`${r*1.1}px sans-serif`;
+    ctx.fillText('🔒',sx,sy+.5);
+  }
+
+  // Hover shimmer
+  if (hoverNode===n && n.type!=='self') {
+    const sa = (t*1.4)%(Math.PI*2);
+    const sg = ctx.createLinearGradient(sx+Math.cos(sa)*r,sy+Math.sin(sa)*r,
+      sx+Math.cos(sa+.8)*r,sy+Math.sin(sa+.8)*r);
+    sg.addColorStop(0,'rgba(255,255,255,0)');
+    sg.addColorStop(.5,'rgba(255,255,255,.38)');
+    sg.addColorStop(1,'rgba(255,255,255,0)');
+    ctx.beginPath(); ctx.arc(sx,sy,r+2,sa,sa+.8);
+    ctx.strokeStyle=sg; ctx.lineWidth=3; ctx.stroke();
+  }
+
+  // Labels below node
+  if (n.type!=='self' && n._s > 0.4) {
+    const lines = n.label.split('\n');
+    const ly = sy + r + 3.5*SCALE;
+    ctx.globalAlpha = n._a * Math.min(1,(n._s-.4)*2.5);
+    const sz = n.degree===1 ? 8.5 : n.degree===2 ? 7.5 : 6.5;
+    ctx.font=`${sz*SCALE}px -apple-system,sans-serif`;
+    ctx.textBaseline='top';
+    ctx.fillStyle = n.degree===3
+      ? (dark?'rgba(148,163,184,.35)':'rgba(100,116,139,.35)')
+      : (dark?'rgba(255,255,255,.68)':'rgba(0,0,0,.62)');
+    lines.forEach((l,i)=>ctx.fillText(l,sx,ly+i*8.5*SCALE));
+  }
+
+  ctx.restore();
+}
+
+// ── DRAW EDGES ────────────────────────────────────────────────────────────────
+function drawEdges(vis) {
+  const dark = document.documentElement.dataset.theme==='dark';
+  EDGES.forEach(([a,b]) => {
+    const n1=NODES.find(n=>n.id===a), n2=NODES.find(n=>n.id===b);
+    if (!n1||!n2||!vis.has(a)||!vis.has(b)) return;
+    const alpha = Math.min(n1._a||1, n2._a||1);
+    if (alpha < 0.03) return;
+    const isGroup = n1.type==='group'||n2.type==='group';
+    const is1st   = (n1.degree<=1||n1.type==='self')&&(n2.degree<=1||n2.type==='self');
+    const is2nd   = n1.degree===2||n2.degree===2;
+    let color, lw;
+    if (isGroup)      { color=`rgba(52,211,153,${.28*alpha})`;  lw=1.2; }
+    else if (is1st)   { color=`rgba(251,191,36,${.22*alpha})`;  lw=1.5; }
+    else if (is2nd)   { color=`rgba(148,163,184,${.10*alpha})`; lw=0.8; }
+    else              { color=`rgba(148,163,184,${.06*alpha})`; lw=0.6; }
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(vx(n1),vy(n1)); ctx.lineTo(vx(n2),vy(n2));
+    ctx.strokeStyle=color; ctx.lineWidth=lw;
+    if (!is1st && !isGroup) ctx.setLineDash([3,5]);
+    ctx.stroke(); ctx.setLineDash([]);
+    ctx.restore();
+  });
+}
+
+// ── BUBBLE MEMBRANE ───────────────────────────────────────────────────────────
+function drawBubble(t) {
+  const br=BUBBLE_R(), sx=wx(0), sy=wy(0);
+  const dark=document.documentElement.dataset.theme==='dark';
+  const fill=ctx.createRadialGradient(sx,sy,0,sx,sy,br);
+  fill.addColorStop(0,  dark?'rgba(251,191,36,.03)':'rgba(251,191,36,.05)');
+  fill.addColorStop(.6, dark?'rgba(167,139,250,.03)':'rgba(167,139,250,.06)');
+  fill.addColorStop(1,  dark?'rgba(52,211,153,.06)' :'rgba(52,211,153,.09)');
+  ctx.beginPath(); ctx.arc(sx,sy,br,0,Math.PI*2);
+  ctx.fillStyle=fill; ctx.fill();
+  // Iridescent ring — 3 passes
+  const hShift=(t*38)%360;
+  for (let pass=0; pass<3; pass++) {
+    const offset=pass*2.2, alpha=.52-pass*.13;
+    for (let i=0; i<60; i++) {
+      const a1=(i/60)*Math.PI*2, a2=((i+1)/60)*Math.PI*2;
+      const hue=(hShift+(i/60)*360+pass*30)%360;
+      const sat=68+Math.sin(i*.4+t*1.8)*18;
+      const lit=dark?64:54;
+      const a=alpha*(.7+Math.sin(i*.35+t*1.1)*.3);
+      ctx.beginPath(); ctx.arc(sx,sy,br-offset,a1,a2);
+      ctx.strokeStyle=`hsla(${hue},${sat}%,${lit}%,${a})`;
+      ctx.lineWidth=3-pass*.6; ctx.stroke();
+    }
+  }
+  // Outer glow
+  const glow=ctx.createRadialGradient(sx,sy,br-8,sx,sy,br+22);
+  glow.addColorStop(0,'rgba(0,0,0,0)');
+  glow.addColorStop(.4,`hsla(${hShift%360},70%,70%,.08)`);
+  glow.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.beginPath(); ctx.arc(sx,sy,br+22,0,Math.PI*2);
+  ctx.fillStyle=glow; ctx.fill();
+}
+
+// ── MAIN LOOP ─────────────────────────────────────────────────────────────────
+const entryStart = Date.now();
+
+function loop() {
+  requestAnimationFrame(loop);
+  const t  = (Date.now()-T0)/1000;
+  const el = Date.now()-entryStart;
+  const dark = document.documentElement.dataset.theme==='dark';
+
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle=dark?'#080810':'#f0f0f8';
+  ctx.fillRect(0,0,W,H);
+
+  let idx=0;
+  NODES.forEach(n => {
+    if (n.type==='self') return;
+    const delay = 350 + idx*ENTRY_STAGGER + n.degree*120;
+    idx++;
+    if (el>delay) {
+      if (!n._dragging) {
+        n._x += (n._tx-n._x)*SPRING_SPD;
+        n._y += (n._ty-n._y)*SPRING_SPD;
+      }
+      n._s = Math.min(1,(n._s||0)+.06);
+      n._a = Math.min(1,(n._a||0)+.05);
+    }
+    // Float
+    if (!n._fp) { n._fp=Math.random()*Math.PI*2; n._fsp=0.16+Math.random()*0.22; }
+    if (!n._dragging) {
+      const fa=(n.degree===1?3:2)*SCALE*FLOAT_AMP;
+      n._fx=Math.sin(t*n._fsp+n._fp)*fa;
+      n._fy=Math.cos(t*n._fsp*.7+n._fp*1.3)*fa*.75;
+    }
+    // Mouse repulsion
+    const sx=vx(n), sy=vy(n);
+    const ddx=sx-mouseX, ddy=sy-mouseY;
+    const dist=Math.sqrt(ddx*ddx+ddy*ddy);
+    const nr=nodeR(n);
+    const REPEL=nr*(1+REPULSE_R/100);
+    if (dist<REPEL && dist>1 && !n._dragging) {
+      const t01=1-dist/REPEL;
+      const force=t01*0.55*SCALE;
+      n._rx=(n._rx||0)+(ddx/dist)*force*0.11;
+      n._ry=(n._ry||0)+(ddy/dist)*force*0.11;
+    }
+    n._rx=(n._rx||0)*0.97; n._ry=(n._ry||0)*0.97;
+    const maxD=nr*0.6, rmag=Math.sqrt((n._rx||0)**2+(n._ry||0)**2);
+    if (rmag>maxD) { n._rx=(n._rx/rmag)*maxD; n._ry=(n._ry/rmag)*maxD; }
+  });
+
+  const vis=getVisible();
+  drawBubble(t);
+  drawEdges(vis);
+  [3,2,1].forEach(d=>NODES.filter(n=>n.degree===d&&vis.has(n.id)).forEach(n=>drawNode(n,t)));
+  drawNode(NODES[0],t);
+  drawParticles();
+}
+
+function getVisible() {
+  return new Set(NODES.map(n=>n.id));
+}
+
+// ── MESSAGE PARTICLES ─────────────────────────────────────────────────────────
+const particles = [];
+
+class MsgParticle {
+  constructor(segments, color, onArrive) {
+    this.segs=segments; this.si=0; this.progress=0;
+    this.speed=PARTICLE_SPD; this.color=color;
+    this.onArrive=onArrive; this.trail=[]; this.done=false;
+  }
+  tick() {
+    if (this.done) return;
+    this.progress+=this.speed;
+    const [a,b]=this.segs[this.si];
+    const x=vx(a)+(vx(b)-vx(a))*this.progress;
+    const y=vy(a)+(vy(b)-vy(a))*this.progress;
+    this.trail.unshift({x,y});
+    if (this.trail.length>10) this.trail.pop();
+    if (this.progress>=1) {
+      this.progress=0; this.si++;
+      if (this.si>=this.segs.length) {
+        this.done=true;
+        if (this.onArrive) this.onArrive();
+      }
+    }
+  }
+  draw() {
+    if (!this.trail.length) return;
+    this.trail.forEach(({x,y},i)=>{
+      const a=(1-i/this.trail.length)*.92;
+      const r=Math.max(.5,(4-i*.35)*SCALE);
+      ctx.save(); ctx.globalAlpha=a;
+      const gr=ctx.createRadialGradient(x,y,0,x,y,r*2.5);
+      gr.addColorStop(0,this.color); gr.addColorStop(1,this.color+'00');
+      ctx.beginPath(); ctx.arc(x,y,r*2.5,0,Math.PI*2);
+      ctx.fillStyle=gr; ctx.fill();
+      ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2);
+      ctx.fillStyle='#fff'; ctx.fill();
+      ctx.restore();
+    });
+  }
+}
+
+function drawParticles() {
+  for (let i=particles.length-1; i>=0; i--) {
+    particles[i].tick(); particles[i].draw();
+    if (particles[i].done) particles.splice(i,1);
+  }
+}
+
+function sendMsg(targetNode) {
+  const jc=NODES[0];
+  if (targetNode.type==='group') {
+    particles.push(new MsgParticle([[jc,targetNode]],'#fbbf24',()=>{
+      (targetNode.members||[]).forEach((name,i)=>{
+        const m=CONTACTS1.find(n=>n.label===name);
+        if (!m) return;
+        setTimeout(()=>particles.push(new MsgParticle([[targetNode,m]],'#fbbf24')),i*80);
+      });
+    }));
+  } else {
+    particles.push(new MsgParticle([[jc,targetNode]],targetNode.color||'#fbbf24'));
+  }
+}
+
+function receiveMsg(sourceNode) {
+  const jc=NODES[0];
+  if (sourceNode.type==='group') {
+    const names=sourceNode.members||[];
+    const sender=CONTACTS1.find(n=>n.label===names[Math.floor(Math.random()*names.length)])||sourceNode;
+    particles.push(new MsgParticle([[sender,sourceNode]],'#fbbf24',()=>{
+      particles.push(new MsgParticle([[sourceNode,jc]],'#fbbf24'));
+    }));
+  } else {
+    particles.push(new MsgParticle([[sourceNode,jc]],sourceNode.color||'#fbbf24'));
+  }
+}
+
+// ── CHAT PANEL ────────────────────────────────────────────────────────────────
+let activeChatNode=null;
+
+function openChat(node) {
+  activeChatNode=node;
+  document.getElementById('panel-scroll').innerHTML=buildChatPanel(node);
+  document.getElementById('panel').classList.add('on');
+  document.getElementById('overlay').classList.add('on');
+  setTimeout(()=>receiveMsg(node),950);
+}
+
+function buildChatPanel(node) {
+  const name=node.label.replace('\n',' ');
+  const color=node.type==='group'?node.color:node.color;
+  const imgTag=node.img
+    ?`<img src="${node.img}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`
+    :`<span style="font-size:20px;font-weight:700;color:#fff">${node.label[0]}</span>`;
+  const mocks=node.type==='group'
+    ?[{from:node.members?.[0]||name,text:'Ready for tonight? 🎤',t:'6:32 PM'},
+      {from:node.members?.[1]||name,text:'Stage is set!',t:'6:35 PM'},
+      {from:'me',text:'Let\'s gooo 🔥',t:'6:36 PM'}]
+    :[{from:name,text:'Checked the tracklist?',t:'5:12 PM'},
+      {from:'me',text:'Yes love it 🙌',t:'5:14 PM'},
+      {from:name,text:'The bridge hits different now 💜',t:'5:15 PM'}];
+  const msgs=mocks.map(m=>`
+    <div style="display:flex;flex-direction:column;align-items:${m.from==='me'?'flex-end':'flex-start'};margin-bottom:8px">
+      ${m.from!=='me'?`<div style="font-size:10px;color:var(--text-muted);margin-bottom:2px;padding:0 4px">${m.from}</div>`:''}
+      <div style="max-width:75%;padding:8px 13px;border-radius:${m.from==='me'?'16px 16px 4px 16px':'16px 16px 16px 4px'};
+        background:${m.from==='me'?`linear-gradient(135deg,${color}cc,${color})`:'var(--surface)'};
+        border:1px solid ${m.from==='me'?color+'44':'var(--border)'};
+        font-size:13.5px;line-height:1.5;color:var(--text)">
+        ${m.text}
+        <div style="font-size:10px;opacity:.4;margin-top:2px;text-align:right">${m.t}</div>
+      </div>
+    </div>`).join('');
+  return `
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+      <div style="width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,${color}88,${color});
+        flex-shrink:0;display:flex;align-items:center;justify-content:center;overflow:hidden">
+        ${imgTag}
+      </div>
+      <div>
+        <div style="font-size:16px;font-weight:700">${name}</div>
+        <div style="font-size:11px;color:var(--text-muted)">${node.type==='group'?`${node.members?.length||0} members`:`1st degree · ${node.role||''}`}</div>
+      </div>
+    </div>
+    <div id="chat-msgs" style="min-height:140px;margin-bottom:16px">${msgs}</div>
+    <div style="display:flex;gap:8px;align-items:flex-end">
+      <textarea id="chat-input" placeholder="Message ${name}…" rows="1"
+        style="flex:1;background:var(--surface);border:1px solid var(--border);border-radius:12px;
+               padding:9px 13px;color:var(--text);font-size:13px;outline:none;resize:none;
+               font-family:inherit;line-height:1.4;max-height:80px"
+        oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,80)+'px'"></textarea>
+      <button onclick="submitChat()" style="width:38px;height:38px;border-radius:50%;border:none;
+        background:linear-gradient(135deg,${color}cc,${color});color:#fff;cursor:pointer;
+        display:flex;align-items:center;justify-content:center;flex-shrink:0">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+          <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+        </svg>
+      </button>
+    </div>`;
+}
+
+function submitChat() {
+  const input=document.getElementById('chat-input');
+  const text=input?.value.trim();
+  if (!text||!activeChatNode) return;
+  const msgs=document.getElementById('chat-msgs');
+  const color=activeChatNode.color||'#fbbf24';
+  const now=new Date();
+  const tStr=now.getHours()+':'+(now.getMinutes()+'').padStart(2,'0');
+  msgs.innerHTML+=`
+    <div style="display:flex;flex-direction:column;align-items:flex-end;margin-bottom:8px">
+      <div style="max-width:75%;padding:8px 13px;border-radius:16px 16px 4px 16px;
+        background:linear-gradient(135deg,${color}cc,${color});
+        border:1px solid ${color}44;font-size:13.5px;line-height:1.5;color:#fff">
+        ${text}<div style="font-size:10px;opacity:.4;margin-top:2px;text-align:right">${tStr}</div>
+      </div>
+    </div>`;
+  msgs.scrollTop=msgs.scrollHeight;
+  input.value=''; input.style.height='auto';
+  sendMsg(activeChatNode);
+  const replies=['👍','on it!','sounds good 🎵','omg yes','love that 💜','let\'s go 🔥','🙌'];
+  setTimeout(()=>{
+    receiveMsg(activeChatNode);
+    setTimeout(()=>{
+      const el=document.getElementById('chat-msgs');
+      if (!el) return;
+      const name=activeChatNode.label.replace('\n',' ');
+      el.innerHTML+=`
+        <div style="display:flex;flex-direction:column;align-items:flex-start;margin-bottom:8px">
+          <div style="font-size:10px;color:var(--text-muted);margin-bottom:2px;padding:0 4px">${name}</div>
+          <div style="max-width:75%;padding:8px 13px;border-radius:16px 16px 16px 4px;
+            background:var(--surface);border:1px solid var(--border);font-size:13.5px;line-height:1.5;color:var(--text)">
+            ${replies[Math.floor(Math.random()*replies.length)]}
+            <div style="font-size:10px;opacity:.4;margin-top:2px">${tStr}</div>
+          </div>
+        </div>`;
+      el.scrollTop=99999;
+    },600);
+  },900);
+}
+
+// ── INTERACTIONS ──────────────────────────────────────────────────────────────
+let _dragNode=null,_dOffX=0,_dOffY=0;
+let _tx0,_ty0,_px0,_py0,_moved;
+let _mx0,_my0,_mpx,_mpy,_mDragged;
+
+function nodeAt(sx,sy) {
+  const vis=getVisible();
+  const order=[NODES[0],...CONTACTS1,...GROUPS,...CONTACTS2,...CONTACTS3];
+  for (const n of order) {
+    if (!vis.has(n.id)) continue;
+    const dx=sx-vx(n), dy=sy-vy(n);
+    if (dx*dx+dy*dy < Math.pow(nodeR(n)*1.5,2)) return n;
+  }
+  return null;
+}
+
+canvas.addEventListener('touchstart',e=>{
+  const t=e.touches[0], hit=nodeAt(t.clientX,t.clientY);
+  if (hit && hit.type!=='self') {
+    _dragNode=hit; hit._dragging=true; _moved=false;
+    _dOffX=t.clientX-vx(hit); _dOffY=t.clientY-vy(hit);
+  } else { _tx0=t.clientX; _ty0=t.clientY; _px0=panX; _py0=panY; _moved=false; }
+},{passive:true});
+
+canvas.addEventListener('touchmove',e=>{
+  const t=e.touches[0];
+  if (_dragNode) {
+    _dragNode._x=(t.clientX-_dOffX-CX-panX)-(_dragNode._fx||0)-(_dragNode._rx||0);
+    _dragNode._y=(t.clientY-_dOffY-CY-panY)-(_dragNode._fy||0)-(_dragNode._ry||0);
+    _dragNode._tx=_dragNode._x; _moved=true; return;
+  }
+  const dx=t.clientX-_tx0, dy=t.clientY-_ty0;
+  if (Math.abs(dx)>6||Math.abs(dy)>6) _moved=true;
+  panX=_px0+dx; panY=_py0+dy;
+},{passive:true});
+
+canvas.addEventListener('touchend',e=>{
+  if (_dragNode) { _dragNode._dragging=false; _dragNode=null; return; }
+  if (_moved) return;
+  const t=e.changedTouches[0], n=nodeAt(t.clientX,t.clientY);
+  if (n) openPanel(n);
+});
+
+canvas.addEventListener('mousemove',e=>{
+  mouseX=e.clientX; mouseY=e.clientY;
+  hoverNode=_dragNode?null:nodeAt(e.clientX,e.clientY);
+  canvas.style.cursor=hoverNode?'pointer':'default';
+  if (_dragNode) {
+    _dragNode._x=(e.clientX-_dOffX-CX-panX)-(_dragNode._fx||0)-(_dragNode._rx||0);
+    _dragNode._y=(e.clientY-_dOffY-CY-panY)-(_dragNode._fy||0)-(_dragNode._ry||0);
+    _dragNode._tx=_dragNode._x; _mDragged=true; return;
+  }
+  if (!(e.buttons&1)) return;
+  const dx=e.clientX-_mx0, dy=e.clientY-_my0;
+  if (Math.abs(dx)>4||Math.abs(dy)>4) _mDragged=true;
+  panX=_mpx+dx; panY=_mpy+dy;
+});
+
+canvas.addEventListener('mousedown',e=>{
+  const hit=nodeAt(e.clientX,e.clientY);
+  if (hit && hit.type!=='self') {
+    _dragNode=hit; hit._dragging=true; _mDragged=false;
+    _dOffX=e.clientX-vx(hit); _dOffY=e.clientY-vy(hit);
+  } else { _mx0=e.clientX; _my0=e.clientY; _mpx=panX; _mpy=panY; _mDragged=false; }
+});
+canvas.addEventListener('mouseup',()=>{
+  if (_dragNode) { _dragNode._dragging=false; _dragNode=null; }
+});
+canvas.addEventListener('click',e=>{
+  if (_mDragged) return;
+  const n=nodeAt(e.clientX,e.clientY);
+  if (n) openPanel(n); else closePanel();
+});
+
+// ── PANEL ─────────────────────────────────────────────────────────────────────
+const panel=document.getElementById('panel');
+const pscroll=document.getElementById('panel-scroll');
+const overlay=document.getElementById('overlay');
+
+function openPanel(n) {
+  if (n.degree===1||n.type==='group') { openChat(n); return; }
+  pscroll.innerHTML=buildPanel(n);
+  panel.classList.add('on'); overlay.classList.add('on');
+}
+function closePanel() { panel.classList.remove('on'); overlay.classList.remove('on'); }
+overlay.addEventListener('click',closePanel);
+
+// ── PROFILE PANEL BUILDER ─────────────────────────────────────────────────────
+function avatar(n,size=62) {
+  const c=n.type==='group'?n.color:n.color||'#fbbf24';
+  const story=n.hasStory?`<div class="p-story-ring"></div><div class="p-story-gap"></div>`:'';
+  const inner=n.img
+    ?`<img src="${n.img}" style="width:100%;height:100%;object-fit:cover;display:block;">`
+    :`<span style="font-size:${size*.38}px;font-weight:700;color:#fff">${n.label[0]}</span>`;
+  const bg=n.img?'':`background:linear-gradient(135deg,${lightenCSS(c,40)},${c});`;
+  return `<div class="p-avatar-wrap">${story}
+    <div class="p-avatar" style="width:${size}px;height:${size}px;${bg}overflow:hidden;border-radius:50%;">
+      ${inner}
+    </div></div>`;
+}
+
+function postGrid(posts,limit,locked) {
+  if (!posts||posts.length===0) return '';
+  const label=locked
+    ?`<div class="p-section-label">Featured <span class="lim-tag">3 MAX</span></div>`
+    :`<div class="p-section-label">Posts</div>`;
+  const cells=[];
+  for (let i=0;i<6;i++) {
+    if (i<limit&&posts[i]) {
+      cells.push(`<div class="post-cell" style="background:linear-gradient(135deg,${posts[i]}33,${posts[i]}77);border:1px solid ${posts[i]}44"></div>`);
+    } else {
+      cells.push(`<div class="post-cell" style="background:var(--surface);border:1px solid var(--border)">🔒</div>`);
+    }
+  }
+  return `${label}<div class="posts-grid">${cells.join('')}</div>`;
+}
+
+function buildPanel(n) {
+  if (n.type==='self') {
+    return `
+      <div class="p-header">
+        <div class="p-avatar-wrap">
+          <div class="p-story-ring"></div><div class="p-story-gap"></div>
+          <div class="p-avatar" style="width:62px;height:62px;background:linear-gradient(135deg,#fffde7,#fbbf24,#d97706);border-radius:50%;font-size:28px;display:flex;align-items:center;justify-content:center;position:relative;z-index:2">
+            👑
+          </div>
+        </div>
+        <div>
+          <div class="p-name">Jordan Cross</div>
+          <span class="badge bstar">⭐ Pop Artist</span>
+          <div class="p-bio" style="margin-top:6px">47.2M bubble followers · Verified Artist</div>
+        </div>
+      </div>
+      <div class="p-actions">
+        <button class="btn btn-pri">Edit Profile</button>
+        <button class="btn btn-sec">Settings</button>
+      </div>
+      ${postGrid(['#fbbf24','#f472b6','#a78bfa','#60a5fa','#34d399','#fb923c'],6,false)}`;
+  }
+  if (n.type==='group') {
+    const members=(n.members||[]).map(m=>`<div class="member-chip">${m}</div>`).join('');
+    return `
+      <div class="p-header">
+        ${avatar(n)}
+        <div>
+          <div class="p-name">${n.label}</div>
+          <span class="badge bg">Group · ${n.members?.length||0} members</span>
+        </div>
+      </div>
+      <div class="p-actions">
+        <button class="btn btn-pri" onclick="openChat(NODES.find(x=>x.id==='${n.id}'));closePanel()">💬 Open Chat</button>
+        <button class="btn btn-sec">👥 Members</button>
+      </div>
+      <div class="p-section-label">Members</div>
+      <div class="members-wrap">${members}</div>`;
+  }
+  if (n.degree===1) {
+    return `
+      <div class="p-header">
+        ${avatar(n)}
+        <div>
+          <div class="p-name">${n.label}</div>
+          <span class="badge b1">1st degree</span>
+          <div class="p-bio">${n.role||n.bio||''}</div>
+        </div>
+      </div>
+      <div class="p-mutual">🔗 ${n.mutuals} mutual connection${n.mutuals!==1?'s':''}</div>
+      <div class="p-actions">
+        <button class="btn btn-pri" onclick="openChat(NODES.find(x=>x.id==='${n.id}'));closePanel()">💬 Message</button>
+        <button class="btn btn-sec">Following ✓</button>
+      </div>
+      ${postGrid(n.posts,6,false)}`;
+  }
+  if (n.degree===2) {
+    return `
+      <div class="p-header">
+        ${avatar(n)}
+        <div>
+          <div class="p-name">${n.label}</div>
+          <span class="badge b2">2nd degree</span>
+        </div>
+      </div>
+      <div class="p-mutual">🔗 ${n.mutuals} mutual · via ${n.via}</div>
+      <div class="p-actions">
+        <button class="btn btn-sec" style="flex:.8">💬 Message</button>
+        <button class="btn btn-pri">+ Follow</button>
+      </div>
+      ${postGrid(n.posts,3,true)}`;
+  }
+  return `
+    <div class="p-header">
+      ${avatar(n)}
+      <div>
+        <div class="p-name">${n.label}</div>
+        <span class="badge b3">3rd degree</span>
+        <div class="p-bio">Connected via ${n.via}</div>
+      </div>
+    </div>
+    <div class="locked-wall">
+      <div class="lock-icon">🔒</div>
+      <strong>Private Profile</strong>
+      <div style="font-size:13px">Follow ${n.via} first, then send a request</div>
+    </div>
+    <div class="p-actions" style="margin-top:8px">
+      <button class="btn btn-pri">📨 Request to Follow</button>
+    </div>`;
+}
+
+// ── THEME ─────────────────────────────────────────────────────────────────────
+document.getElementById('themeBtn').addEventListener('click',()=>{
+  const h=document.documentElement;
+  h.dataset.theme=h.dataset.theme==='dark'?'light':'dark';
+});
+
+// ── BOOT ─────────────────────────────────────────────────────────────────────
+resize();
+loop();
+</script>
+</body>
+</html>
